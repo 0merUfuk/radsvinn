@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 19700,
+  "num_turns": 1,
+  "result": "{\"epic\": null, \"milestones\": [], \"items\": [{\"temp_id\": \"S1\", \"type\": \"Task\", \"parent_temp_id\": null, \"depends_on\": [], \"milestone_id\": null, \"repo\": \"api-service\", \"effort_tier\": \"high\", \"predicted_cost_usd\": 2, \"fields\": {\"why\": \"Destek ekibi 'kredim yanlış düştü' şikayetlerini araştırırken hangi generation'ın kaç kredi düşürdüğünü göremiyor; kredi düşümleri loglarda izlenemiyor. Her düşüm için tek satırlık structured log, şikayet araştırmasını dakikalara indirir.\", \"related_links\": {\"external\": [], \"code_anchors\": [\"api-service:internal/account/balance.go\"]}, \"definition_of_done\": \"api-service'te her kredi düşümünde user_id, generation_id, düşülen kredi miktarı ve kalan bakiyeyi içeren tek satırlık structured (JSON) log yazılır; kredi düşüm davranışı ve miktarları değişmez.\", \"technical_analysis\": {\"prose\": \"Kredi düşümünün yapıldığı balance.go, shared-write no-go-zone üyesidir; bu dosyaya dokunan ticket needs-human routing + high effort_tier ile işaretlenir. İş yalnızca observability: mevcut düşüm noktasına zerolog ile tek structured log satırı (user_id, generation_id, amount, remaining) eklenir; UPDATE sorgusu, kredi miktarları ve idempotency semantiği aynen kalır. Zone üyesi olduğu için değişiklik human review gerektirir.\", \"affected_repos\": [\"api-service\"], \"coupling_zones\": [\"shared-write\"], \"tier1_decomposition\": \"needs-human\", \"read_only_repos\": [], \"inferred_repos_flagged\": false}, \"acceptance_criteria\": [\"Bir generation kredi düşümü tamamlandığında loglarda user_id, generation_id, düşülen miktar ve kalan bakiyeyi içeren tek bir structured satır görünür\", \"Kredi düşüm miktarı ve akışı değişmez (mevcut testler yeşil kalır)\", \"Log satırı JSON formatındadır ve mevcut log pipeline'ında parse edilebilir\"]}}]}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-groom__sample-03__a1",
+  "total_cost_usd": 0.0331,
+  "usage": {
+    "input_tokens": 4200,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for the groom REGEN (key=groom__sample-03__a1). FIX B self-heal: the a0 plan mis-routed the shared-write zone (coupling_zones [\"none\"] on a zone-member anchor) and hard-failed treecheck zone_routing; this regen corrects the routing (coupling_zones [\"shared-write\"] + needs-human + high) so the plan now PASSES the deterministic gate. Also FIX A: this output intentionally OMITS top-level plan_id/requester/role_lens/mode — the harness injects them before treecheck."
+}

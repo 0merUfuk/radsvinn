@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 21840,
+  "num_turns": 1,
+  "result": "{\"plan_id\":\"sample-02-plan\",\"requester\":\"calib-fixture-requester\",\"role_lens\":\"business\",\"mode\":\"front_door\",\"epic\":null,\"milestones\":[],\"items\":[{\"temp_id\":\"S1\",\"type\":\"Task\",\"parent_temp_id\":null,\"depends_on\":[],\"milestone_id\":null,\"repo\":\"web-app\",\"effort_tier\":\"low\",\"predicted_cost_usd\":1,\"fields\":{\"why\":\"editor'daki 'Upscale' butonunun tooltip'i 'Görseli büyüt' diyor ama buton çözünürlüğü 2x/4x artırıyor (upscale), boyutu büyütmüyor. Yanlış metin kullanıcıyı yanıltıyor; doğru beklenti için düzeltilmeli.\",\"related_links\":{\"external\":[],\"code_anchors\":[\"web-app:src/app/user/editor\"]},\"definition_of_done\":\"editor'da 'Upscale' butonunun tooltip metni 'Çözünürlüğü 2x/4x artır (upscale)' olarak görünür; başka hiçbir editor davranışı değişmez.\",\"technical_analysis\":{\"prose\":\"editor bileşenindeki Upscale butonunun tooltip/title string'i güncellenir. Tek dosyalık, tek string'lik additive bir değişiklik; herhangi bir coupling zone'a girmez, yeni davranış eklemez.\",\"affected_repos\":[\"web-app\"],\"coupling_zones\":[\"none\"],\"tier1_decomposition\":\"single-repo-sequenced\",\"read_only_repos\":[],\"inferred_repos_flagged\":false},\"acceptance_criteria\":[\"Upscale butonunun üzerine gelince tooltip 'Çözünürlüğü 2x/4x artır (upscale)' gösterir\",\"Eski 'Görseli büyüt' metni arayüzde hiçbir yerde görünmez\",\"Butonun tıklama davranışı ve upscale akışı değişmeden çalışır\"]}}]}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-groom__sample-02",
+  "total_cost_usd": 0.0303,
+  "usage": {
+    "input_tokens": 4200,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for generator phase, key=groom__sample-02 — plumbing only"
+}

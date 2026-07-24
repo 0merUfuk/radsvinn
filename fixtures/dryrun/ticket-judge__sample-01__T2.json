@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"ticket\",\"temp_id\":\"T2\",\"scores\":{\"why\":{\"score\":8,\"justification_tr\":\"İntent açık: kullanıcı toplu üretim başlatıp ilerlemeyi görebilmeli. İş değeri net, business dilinde.\"},\"related_links\":{\"score\":6,\"justification_tr\":\"Tek code_anchor (src/app/user/editor) doğru dizini gösteriyor ama biraz genel — hangi bileşen/route dosyasına dokunulacağı daha spesifik olabilirdi. external link yok, kabul edilebilir.\"},\"definition_of_done\":{\"score\":7,\"justification_tr\":\"DoD somut ama 'periyodik polling' dışında güncelleme sıklığı/timeout gibi ölçülebilir bir eşik vermiyor; 'sonuç görselleri açılabilir' biraz aktivite-lean.\"},\"technical_analysis\":{\"score\":8,\"justification_tr\":\"Yaklaşım repo-aware: producer T1'e depends_on, response-shape lockstep uyarısı, herhangi bir no-go zone'una girilmediği açık. SSE/websocket'in iter-2'ye bırakılması makul; polling seçimi gerekçeli.\"},\"acceptance_criteria\":{\"score\":8,\"justification_tr\":\"Kriterler gözlemlenebilir: eleman sayısı sınırı, listede görünme, durum geçişleri, indirme, hata gösterimi. Polling aralığına dair ölçülebilir bir kriter eksik.\"}},\"critical_improvements_tr\":[\"DoD/AC'ye polling aralığı ve 'processing' takılı kalan job için timeout davranışı gibi ölçülebilir bir eşik eklenmeli (ör. 5s'de bir poll, 10dk sonra stale işaretle).\"],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-ticket-judge__sample-01__T2",
+  "total_cost_usd": 0.0338,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=ticket-judge__sample-01__T2 — plumbing only"
+}

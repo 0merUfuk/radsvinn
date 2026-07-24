@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"tree\",\"scores\":{\"right_sizing\":{\"score\":10,\"justification_tr\":\"Gerçekten küçük bir ask için tek düğümlü skeleton doğru karar: tek dosyalık tooltip düzeltmesini epic/milestone ceremony'sine boğmamak right-sizing'in ta kendisi.\"},\"ordering_dependencies\":{\"score\":10,\"justification_tr\":\"Tek leaf, bağımlılık yok — sıralama sorusu anlamsız; boş depends_on doğru.\"},\"milestone_coherence\":{\"score\":8,\"justification_tr\":\"Milestone yok ve olması da gereksiz; tek shippable birim zaten kendisi demoable. One-node için milestone koymamak tutarlı.\"},\"coverage\":{\"score\":9,\"justification_tr\":\"Ask'ın tamamı (tooltip metnini düzelt) tek leaf ile karşılanıyor; fazladan iş icat edilmemiş.\"},\"slice_quality\":{\"score\":9,\"justification_tr\":\"Tek repo (web-app), tek dosya; slice zaten atomik. Yatay/dikey bölme gerektirmeyen doğru bir tekil dilim.\"}},\"critical_improvements_tr\":[],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-tree-judge__sample-02",
+  "total_cost_usd": 0.0289,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=tree-judge__sample-02 — plumbing only"
+}

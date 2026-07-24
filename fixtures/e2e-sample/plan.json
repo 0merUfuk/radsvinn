@@ -1,0 +1,135 @@
+{
+  "plan_id": "ghps-2026-07-07-a1b2c3d4",
+  "requester": "test-requester",
+  "role_lens": "business",
+  "mode": "front_door",
+  "epic": {
+    "temp_id": "epic-1",
+    "summary": "Growth: Search generation history by prompt text",
+    "why": "Users cannot find their old generations on the web-app history page — it is an undifferentiated infinite scroll. Letting a user type part of a prompt and see matching generations makes their own creative history retrievable, cutting frustration and abandonment on the history page.",
+    "existing_key": null
+  },
+  "milestones": [
+    {
+      "milestone_id": "m1",
+      "name": "Searchable backend",
+      "goal": "The generation history API can return a user's generations filtered by a prompt-text substring, backed by an index so search stays fast on large histories.",
+      "order": 1
+    },
+    {
+      "milestone_id": "m2",
+      "name": "History search UI",
+      "goal": "A user can type part of a prompt on the history page and see only the matching generations.",
+      "order": 2
+    }
+  ],
+  "items": [
+    {
+      "temp_id": "i1",
+      "type": "Task",
+      "parent_temp_id": "epic-1",
+      "depends_on": [],
+      "milestone_id": "m1",
+      "repo": "web-app",
+      "effort_tier": "low",
+      "predicted_cost_usd": 2.0,
+      "fields": {
+        "why": "Prompt-text search over generation history has to stay fast even for power users with thousands of generations. A plain substring match (ILIKE '%term%') cannot use a normal B-tree index and would force a sequential scan over the whole Generation table per keystroke-driven query. Adding a trigram index up front is the foundation that keeps the search feature responsive as histories grow, so the user-facing search never regresses page load.",
+        "related_links": {
+          "external": [],
+          "code_anchors": [
+            "web-app:prisma/schema.prisma:Generation"
+          ]
+        },
+        "definition_of_done": "A Prisma migration adds a GIN trigram index (pg_trgm) on Generation.prompt (enabling the pg_trgm extension if not already present), the migration applies cleanly forward on a production-shaped database, and an EXPLAIN of a case-insensitive substring query on prompt shows the index being used rather than a full sequential scan. No application-code behavior changes in this ticket.",
+        "technical_analysis": {
+          "prose": "Add the pg_trgm extension (CREATE EXTENSION IF NOT EXISTS pg_trgm) and a GIN index using gin_trgm_ops on the prompt column of the Generation model. This is an additive, reversible schema change — no column added, no data migration, no reader change. Reflect the index in prisma/schema.prisma (the @@index block on Generation, which currently indexes userId/status/type/createdAt but not prompt) and ship the accompanying SQL migration; because Prisma cannot express gin_trgm_ops natively, the extension + operator-class index is authored as raw SQL inside the generated migration. Watch index build time on the live table: on a large Generation table build the index CONCURRENTLY (or during a low-traffic window) to avoid locking writes. This lands entirely in the web-app Prisma schema/migrations; it does not touch any shared-write column (e.g. the Account.balance no-go zone), so no coupling zone is involved.",
+          "affected_repos": ["web-app"],
+          "coupling_zones": ["none"],
+          "tier1_decomposition": "single-repo-sequenced",
+          "read_only_repos": []
+        },
+        "acceptance_criteria": [
+          "A new Prisma migration exists that runs CREATE EXTENSION IF NOT EXISTS pg_trgm and creates a GIN index with gin_trgm_ops on Generation.prompt.",
+          "`prisma migrate deploy` (or the project's migrate step) applies the migration cleanly against a production-shaped database with no errors.",
+          "EXPLAIN (ANALYZE) on a query of the form `... WHERE prompt ILIKE '%term%'` against a seeded Generation table shows a Bitmap Index Scan on the new trigram index, not a Seq Scan.",
+          "The migration is reversible / the down path (or a documented rollback) drops the index cleanly.",
+          "No change to any API response or application code ships in this ticket (diff is limited to prisma/schema.prisma and the migration SQL)."
+        ]
+      }
+    },
+    {
+      "temp_id": "i2",
+      "type": "Story",
+      "parent_temp_id": "epic-1",
+      "depends_on": ["i1"],
+      "milestone_id": "m1",
+      "repo": "web-app",
+      "effort_tier": "medium",
+      "predicted_cost_usd": 4.5,
+      "fields": {
+        "why": "For a user to find an old generation by remembering part of what they typed, the history API must accept a search term and return only the generations whose prompt contains it. This is the server half of the feature: without it the UI has nothing to call. It must respect the same per-user scoping, soft-delete filtering, and pagination the history list already enforces, so search results are correct and safe.",
+        "related_links": {
+          "external": [],
+          "code_anchors": [
+            "web-app:src/app/api/v1/user/web-editor/generations/route.ts:GET",
+            "web-app:src/app/api/v1/user/web-editor/generations/count/route.ts",
+            "web-app:prisma/schema.prisma:Generation"
+          ]
+        },
+        "definition_of_done": "The generation history GET endpoint accepts an optional prompt-search query parameter (e.g. `q`); when present it filters the returned generations to those whose prompt contains the term case-insensitively, scoped to the authenticated user and honoring the existing soft-delete (status != DELETED) rule. The filter is applied consistently across the legacy `prisma.generation` table and the api-service `prisma.generations` table paths the endpoint already queries, pagination (cursor and offset modes) continues to work with the filter applied, and the companion count endpoint returns the count matching the same search term. An empty/absent `q` preserves today's exact behavior.",
+        "technical_analysis": {
+          "prose": "Extend the GET handler in the web-editor/generations route to read a `q` search param, trim it, and when non-empty add a case-insensitive `contains` predicate on prompt into the shared `whereClause` (Prisma `{ prompt: { contains: q, mode: 'insensitive' } }`). The endpoint queries TWO tables — the legacy `prisma.generation` (camelCase) and the api-service `prisma.generations` (snake_case, `prompt` column) for the types/offset path — so the search predicate must be added to BOTH where-clause branches or search will silently miss video/VTL rows (same class of bug the file already documents for the type enum `-`/`_` mismatch). Keep the term off the cursor cache key or disable caching for searched queries (mirror how `statusFilter` already sets `cacheKey = null`) so a search never returns cached unfiltered pages. Apply the identical predicate in the count route so totals match. Preserve both pagination modes: the trigram index from i1 backs the `contains` scan. Guard against overly short/empty terms (no predicate when blank). No shared-write columns are touched — additive, single-repo.",
+          "affected_repos": ["web-app"],
+          "coupling_zones": ["none"],
+          "tier1_decomposition": "single-repo-sequenced",
+          "read_only_repos": []
+        },
+        "acceptance_criteria": [
+          "GET /api/v1/user/web-editor/generations?q=<term> returns only the caller's generations whose prompt contains <term> case-insensitively; a request without `q` returns the exact same payload as today (regression-safe).",
+          "Search is scoped to the authenticated user (a user never sees another user's generations) and continues to exclude soft-deleted (status DELETED) rows unless the existing includeDeleted flag is set.",
+          "The prompt filter is applied on both the legacy `prisma.generation` path and the api-service `prisma.generations` (types/offset) path, so a matching video/VTL generation is also returned.",
+          "Cursor-based and offset-based pagination both return correct, non-overlapping pages while `q` is active, and searched queries are not served from the unfiltered generations cache.",
+          "The count endpoint (generations/count) returns a total consistent with the number of generations matching the same `q`.",
+          "Automated tests cover: match, no-match, case-insensitivity, empty `q` passthrough, and cross-user isolation."
+        ]
+      }
+    },
+    {
+      "temp_id": "i3",
+      "type": "Story",
+      "parent_temp_id": "epic-1",
+      "depends_on": ["i2"],
+      "milestone_id": "m2",
+      "repo": "web-app",
+      "effort_tier": "medium",
+      "predicted_cost_usd": 4.0,
+      "fields": {
+        "why": "This is the part the user actually sees: a search box on the history/gallery page where they type part of a prompt and the grid narrows to matching generations. It turns the infinite scroll into something navigable — the user can finally re-find a specific creation instead of scrolling forever.",
+        "related_links": {
+          "external": [],
+          "code_anchors": [
+            "web-app:src/app/user/gallery/page.tsx:UserGallery",
+            "web-app:src/features/user/components/Common/StudioShared/useGenerationsShared.ts:useGenerationsShared"
+          ]
+        },
+        "definition_of_done": "The gallery/history page shows a prompt search input. As the user types (debounced), the generation grid updates to show only generations whose prompt matches, by passing the term as the `q` param through the shared generations hook to the endpoint from i2. Clearing the input restores the full history. Loading, empty-results ('no generations match \"…\"'), and error states are handled, and pagination/Load-More continues to work while a search term is active.",
+        "technical_analysis": {
+          "prose": "Add a debounced search input to the gallery page (UserGallery in src/app/user/gallery/page.tsx), sitting alongside the existing FiltersPopover controls. Thread the search term into the data layer: `useGenerationsShared` currently builds the request URL as `/api/v1/user/web-editor/generations?limit=24[&cursor=…]` — extend its fetch (initial load and loadMore) to append `&q=<encoded term>` when a term is set, and reset pagination/cursor state when the term changes so results don't mix pages from different queries. Debounce input (~300ms) to avoid a request per keystroke and to respect the endpoint's IP rate limit. Use encodeURIComponent on the term. Add empty-state and in-flight UI. This is a pure frontend/consumer change in web-app; it depends on i2's `q` support and touches no shared-write code.",
+          "affected_repos": ["web-app"],
+          "coupling_zones": ["none"],
+          "tier1_decomposition": "single-repo-sequenced",
+          "read_only_repos": []
+        },
+        "acceptance_criteria": [
+          "The gallery/history page renders a visible prompt search input.",
+          "Typing a term (after debounce) updates the grid to show only generations whose prompt matches, via a request carrying `q=<term>` to the generations endpoint.",
+          "Clearing the search input restores the unfiltered history view and pagination state resets correctly (no stale/mixed pages).",
+          "A search yielding no matches shows an explicit empty state referencing the searched term, not a blank/broken grid.",
+          "Load More / infinite scroll continues to page correctly while a search term is active, and the term is URL-encoded so special characters don't break the request.",
+          "Input is debounced so a burst of keystrokes does not fire a request per character or trip the endpoint's rate limiter."
+        ]
+      }
+    }
+  ]
+}

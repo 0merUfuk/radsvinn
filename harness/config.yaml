@@ -1,0 +1,27 @@
+models:
+  # Mercury model policy: use the strongest reasoning model for planning.
+  # Generator == the jira-planner role (opus), so
+  # calibration measures the planner we actually ship. Judge = same model by DELIBERATE
+  # choice — judge != generator holds via context isolation (separate process, fresh
+  # --session-id, no --resume, rubric-only prompt, artifact-as-DATA).
+  generator: claude-opus-4-8
+  generator_effort: xhigh # planning role — deeper reasoning; never max (policy)
+  judge: claude-opus-4-8
+  judge_effort: high
+  same_model_ok: true # explicit acknowledgment of the same-model pairing (see policy above)
+paths: # all relative to the repo root
+  prompts: prompts
+  thresholds: internal/checks/thresholds.yaml
+  coupling_map: coupling-map.yaml
+  repos_root: ../repos # the grounding workspace checkout — READ-ONLY (example repos: web-app, api-service, worker-service, shared-lib live there)
+  contracts: contracts
+output_language: en # en | tr | both — ticket prose language (why/DoD/TA-prose/AC + one_line_summary).
+                    # DEFAULT en (English). "both" = English primary + a Turkish section. Technical
+                    # jargon (endpoint/migration/idempotency/event names/code identifiers) is ALWAYS English.
+limits:
+  json_reask_attempts: 1
+  regen_attempts_from_thresholds: true   # N=2 read from thresholds.yaml verdicts.regen_attempts
+  call_timeout_minutes: 45               # per `claude` CLI call; generous headroom for Opus xhigh big-ask calls + partial-sleep tolerance; SIGKILL on breach = call FAILS, never a hang
+verdict_floors: # calibration-tunable — a dimension scoring BELOW its floor caps that verdict at FLAG (never PASS; a BLOCK stays BLOCK)
+  tree:
+    coverage: 5 # a tree that misses pieces of the ask must never PASS on the strength of its other dimensions

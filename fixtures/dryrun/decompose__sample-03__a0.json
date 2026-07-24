@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 18400,
+  "num_turns": 1,
+  "result": "{\"plan_id\":\"sample-03-plan\",\"requester\":\"calib-fixture-requester\",\"mode\":\"front_door\",\"epic\":null,\"milestones\":[],\"items\":[{\"temp_id\":\"S1\",\"type\":\"Task\",\"parent_temp_id\":null,\"depends_on\":[],\"milestone_id\":null,\"repo\":\"api-service\",\"size_estimate\":{\"tier\":\"low\",\"predicted_cost_usd\":2,\"rationale\":\"Tek serviste, kredi düşümü yapılan noktaya tek satırlık structured log eklemek; davranış değişikliği yok, test dahil küçük bir iş.\"},\"one_line_summary\":\"api-service'te her kredi düşümü için user_id, generation_id, düşülen miktar ve kalan bakiyeyi içeren structured log satırı ekle\"}]}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-decompose__sample-03__a0",
+  "total_cost_usd": 0.0245,
+  "usage": {
+    "input_tokens": 3800,
+    "output_tokens": 850,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for generator phase, key=decompose__sample-03__a0 — plumbing only; intentionally exercises the zone_routing hard-fail -> forced BLOCK path"
+}

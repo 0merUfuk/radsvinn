@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 21840,
+  "num_turns": 1,
+  "result": "{\"plan_id\":\"sample-02-plan\",\"requester\":\"calib-fixture-requester\",\"mode\":\"front_door\",\"epic\":null,\"milestones\":[],\"items\":[{\"temp_id\":\"S1\",\"type\":\"Task\",\"parent_temp_id\":null,\"depends_on\":[],\"milestone_id\":null,\"repo\":\"web-app\",\"size_estimate\":{\"tier\":\"low\",\"predicted_cost_usd\":1,\"rationale\":\"Tek dosyada tooltip string düzeltmesi; test dahil birkaç saatlik iş. Ceremony gerektirmez.\"},\"one_line_summary\":\"editor'da 'Upscale' butonunun tooltip metnini doğru (çözünürlüğü 2x/4x artır) olacak şekilde düzelt\"}]}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-decompose__sample-02__a0",
+  "total_cost_usd": 0.0231,
+  "usage": {
+    "input_tokens": 4200,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for generator phase, key=decompose__sample-02__a0 — plumbing only"
+}

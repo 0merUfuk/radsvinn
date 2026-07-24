@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"ticket\",\"temp_id\":\"S1\",\"scores\":{\"why\":{\"score\":9,\"justification_tr\":\"İntent kristal net: yanlış tooltip metni kullanıcıyı yanıltıyor, doğru beklenti için düzeltiliyor. Küçük iş için tam da olması gereken netlikte.\"},\"related_links\":{\"score\":5,\"justification_tr\":\"Tek code_anchor doğru dizini (editor) gösteriyor ama tam dosya/bileşen değil; küçük iş olduğu için tolere edilir ama daha spesifik bir anchor bir dev'in aramasını kısaltırdı.\"},\"definition_of_done\":{\"score\":8,\"justification_tr\":\"DoD somut ve testable: tooltip metni tam olarak verilmiş, 'başka davranış değişmez' garantisi eklenmiş. PM ve dev imzalar.\"},\"technical_analysis\":{\"score\":8,\"justification_tr\":\"Yaklaşım doğru ve dürüst: tek string/tek dosya, coupling zone yok, additive. Küçük iş için over-analiz yapılmamış — bu iyi.\"},\"acceptance_criteria\":{\"score\":9,\"justification_tr\":\"Kriterler bağımsız test edilebilir: yeni metnin gösterimi, eski metnin kaybolması, upscale davranışının bozulmaması. Regresyon kriteri dahil.\"}},\"critical_improvements_tr\":[\"code_anchor'ı tooltip'in tanımlandığı tam dosya/bileşene daraltmak (repo:path:symbol) bir sonraki dev için aramayı sıfırlar.\"],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-ticket-judge__sample-02__S1",
+  "total_cost_usd": 0.0299,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=ticket-judge__sample-02__S1 — plumbing only"
+}

@@ -1,0 +1,39 @@
+# Mercury deterministic-check + verdict thresholds — TUNABLE from calibration, no rebuild needed.
+# Check LOGIC lives in Go (internal/checks); everything a calibration run might move lives here.
+# Deterministic decomposition and ticket-quality thresholds.
+
+verdicts:
+  pass_min: 80 # >= PASS
+  flag_min: 60 # 60..79 FLAG; < 60 BLOCK -> bounded regen
+  executor_min: 85 # a Ready-for-Agent ticket needs >= 85
+  regen_attempts: 2 # bounded self-correction N, then escalate to human
+
+weights:
+  ticket: # sums to 10, normalized /100 by the harness
+    technical_analysis: 3.5
+    acceptance_criteria: 3.5
+    why: 1.5
+    definition_of_done: 1.0
+    related_links: 0.5
+  tree: # sums to 10
+    right_sizing: 2.5
+    ordering_dependencies: 2.5
+    milestone_coherence: 2.0
+    coverage: 2.0
+    slice_quality: 1.0
+
+sizing: # calibration-tunable sizing band
+  max_leaf_predicted_cost_usd: 10.0 # > $10 ≈ a feature; advisory, non-blocking WARN above (NOT a hard fail) — the decomposer still AIMS to split, but an over-cap leaf no longer blocks the gate (2026-07-13 sizing-warn demotion)
+  min_leaf_predicted_cost_usd: 2.0 # micro-leaf fold-candidate FLOOR — a leaf priced below this is likely too small to warrant its own ticket. Non-blocking WARN, skeleton mode only (checkSizingSane). Set 0 to disable.
+  warn_leaf_predicted_cost_usd: 7.5 # soft warning band
+  max_tree_leaves: 20 # over-fragmentation convention (leaves = items without children); advisory WARN above, never a hard block
+  max_depth: 3 # Epic -> L0 -> Sub-task
+  max_subtasks_per_parent: 5 # convention: >5 sub-tasks -> split or promote; advisory WARN above, never a hard block
+
+repos: # single-repo rule universe (skeleton.schema.json repo enum, minus the lockstep marker)
+  known:
+    - web-app
+    - api-service
+    - worker-service
+    - shared-lib
+  lockstep_marker: cross-repo-lockstep # allowed ONLY with needs-human routing

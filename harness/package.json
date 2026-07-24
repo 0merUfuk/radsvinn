@@ -1,0 +1,20 @@
+{
+  "name": "mercury-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mercury calibration harness — disposable glue that drives the planner pipeline over fixture asks and records everything for human calibration. Correctness + observability over elegance.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "calibrate": "node run-calibration.mjs",
+    "sheet": "node render-sheet.mjs",
+    "agreement": "node score-agreement.mjs",
+    "slice": "node slice-map.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

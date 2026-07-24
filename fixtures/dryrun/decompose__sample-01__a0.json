@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 21840,
+  "num_turns": 1,
+  "result": "{\"plan_id\":\"sample-01-plan\",\"requester\":\"calib-fixture-requester\",\"mode\":\"front_door\",\"epic\":{\"temp_id\":\"E1\",\"summary\":\"Toplu (bulk) generation queue UX\",\"why\":\"Power user ve ajanslar görselleri tek tek üretmek yerine 10-50 görsellik bir batch job oluşturup queue'dan ilerlemesini takip edebilsin; batch bitince bildirim alsın. Bu, ağır kullanıcılar için üretim verimliliğini ciddi artırır.\",\"existing_key\":null},\"milestones\":[{\"milestone_id\":\"M1\",\"name\":\"Batch backend foundation\",\"goal\":\"api-service batch endpoint canlı ve tek başına test edilebilir\",\"order\":1},{\"milestone_id\":\"M2\",\"name\":\"Queue UI\",\"goal\":\"web-app'te kullanıcı batch job listesini ve ilerlemesini görüp yeni batch oluşturabiliyor\",\"order\":2},{\"milestone_id\":\"M3\",\"name\":\"Notification entegrasyonu\",\"goal\":\"batch tamamlanınca kullanıcıya bildirim gidiyor\",\"order\":3}],\"items\":[{\"temp_id\":\"T1\",\"type\":\"Task\",\"parent_temp_id\":\"E1\",\"depends_on\":[],\"milestone_id\":\"M1\",\"repo\":\"api-service\",\"size_estimate\":{\"tier\":\"medium\",\"predicted_cost_usd\":6,\"rationale\":\"Yeni POST /api/v1/generations/batch endpoint + batch job persistence; mevcut generation servisini reuse eder, tek repo.\"},\"one_line_summary\":\"api-service'e POST /api/v1/generations/batch endpoint'i ekle; batch job'ı persist et ve per-generation akışını fan-out et\"},{\"temp_id\":\"T2\",\"type\":\"Story\",\"parent_temp_id\":\"E1\",\"depends_on\":[\"T1\"],\"milestone_id\":\"M2\",\"repo\":\"web-app\",\"size_estimate\":{\"tier\":\"high\",\"predicted_cost_usd\":15,\"rationale\":\"Batch oluşturma + job listesi + progress + gerçek zamanlı güncelleme hepsi tek ticket'ta — büyük.\"},\"one_line_summary\":\"web-app'te batch queue UI — batch oluşturma + job listesi + pending/processing/done/failed progress göstergesi\"},{\"temp_id\":\"T3\",\"type\":\"Task\",\"parent_temp_id\":\"E1\",\"depends_on\":[\"T1\"],\"milestone_id\":\"M3\",\"repo\":\"api-service\",\"size_estimate\":{\"tier\":\"low\",\"predicted_cost_usd\":5,\"rationale\":\"Batch tamamlanınca notification.events exchange'e notification.send publish et; mevcut notification client'ı reuse eder.\"},\"one_line_summary\":\"batch tamamlandığında api-service'ten notification.events exchange'ine notification.send event'i publish et\"}]}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-decompose__sample-01__a0",
+  "total_cost_usd": 0.0512,
+  "usage": {
+    "input_tokens": 4200,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for generator phase, key=decompose__sample-01__a0 — plumbing only"
+}

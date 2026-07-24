@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"ticket\",\"temp_id\":\"T3\",\"scores\":{\"why\":{\"score\":8,\"justification_tr\":\"İntent net: 'başlat ve unut' deneyimi için batch bitince bildirim. İş değeri açık ve business-lean.\"},\"related_links\":{\"score\":6,\"justification_tr\":\"code_anchor (notification/client.go) tam doğru yeri gösteriyor ve load-bearing; tek anchor yeterli ama batch-state hook'unun nerede olduğu da anchor'lanabilirdi.\"},\"definition_of_done\":{\"score\":8,\"justification_tr\":\"DoD somut ve testable: terminal-state tetikleyici, exchange/routing_key, payload alanları, best-effort/non-blocking davranış. İyi tanımlı kontrat.\"},\"technical_analysis\":{\"score\":9,\"justification_tr\":\"Yaklaşım güçlü: mevcut notification client reuse, tolerant decode sayesinde additive alanlar, publish hatasının batch'i bloklamaması. Coupling metadata (tolerant sync-out) map ile tutarlı.\"},\"acceptance_criteria\":{\"score\":8,\"justification_tr\":\"Kriterler test edilebilir: publish tetikleme, payload içeriği, hata durumunda batch'in etkilenmemesi, tamamlanmamış batch için publish edilmemesi. Negatif senaryo kapsanmış.\"}},\"critical_improvements_tr\":[\"AC'ye event'in en az/at-most-once semantiği eklenebilir: retry durumunda batch-complete event'inin duplicate gönderilip gönderilmeyeceği netleştirilmeli.\"],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-ticket-judge__sample-01__T3",
+  "total_cost_usd": 0.0341,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=ticket-judge__sample-01__T3 — plumbing only"
+}

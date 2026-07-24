@@ -1,0 +1,133 @@
+# Mercury coupling map — EXAMPLE (replace every entry with your platform's real edges)
+# ===========================================================================
+# This file is the coupling ground truth Mercury reads while it decomposes and
+# grooms tickets: which data is written by more than one service, which
+# cross-service calls are lockstep, and which paths are "no-go zones" that a
+# human must own instead of an agent splitting them across repos.
+#
+# The contents below are a NEUTRAL, illustrative example built on the example
+# repo set (web-app, api-service, worker-service, shared-lib). They exist to
+# show the SCHEMA — delete them and describe your own coupling. Mercury only
+# trusts what is written here; an empty or wrong map means missed hazards.
+#
+# Anchor identity = file + symbol_or_pattern (grep-able). `line_as_of` is a
+# HINT ONLY, never matched on: anchors resolve against origin/main git objects
+# by grep, so line numbers may drift without breaking the map.
+#
+# Schema (top level):
+#   version        integer — bump when the shape changes.
+#   generated_at   ISO date this map was last regenerated.
+#   sources        the commit each repo was verified against (audit trail).
+#   tables[]       multi-writer data the planner must not let drift.
+#   services[]     cross-service edges: sync_out / events_pub / events_sub.
+#   no_go_zones[]  the ONLY block the deterministic checker parses today. Each
+#                  zone needs `id` (a legal NON-NONE value from the plan
+#                  `coupling_zones` enum — the neutral map ID is shared-write;
+#                  `none` is only a plan-item sentinel) and `members`, a list
+#                  of "repo:path" prefix strings. An anchor inside any member
+#                  path forces that zone into coupling_zones, tier1 to
+#                  needs-human, and effort_tier up to high/max. Every other key
+#                  (kind/why/notes/…) is human-facing context the LLM reads.
+# ===========================================================================
+
+version: 1
+generated_at: 2026-01-01 # EXAMPLE — set to the date you regenerate this map.
+sources: # EXAMPLE — record the origin/main commit each entry was verified against.
+  web-app: "0000000"
+  api-service: "0000000"
+  worker-service: "0000000"
+
+# ── tables ────────────────────────────────────────────────────────────────
+# Data written by more than one service. The classic hazard: no single owner,
+# no foreign key, no version gate — so a rename or semantics change has to land
+# in every writer at once, and nothing enforces that.
+tables:
+  - name: Account # EXAMPLE — an account row whose balance is written by 3 services.
+    owner: web-app # owner-of-record, NOT sole writer — see no_go_zones[shared-write].
+    writers:
+      - service: web-app
+        mechanism: orm
+        anchor:
+          file: src/server/account/account-service.ts
+          symbol_or_pattern: "account.update"
+          line_as_of: 120
+          last_verified: 2026-01-01
+      - service: api-service
+        mechanism: raw-sql
+        anchor:
+          file: internal/account/balance.go
+          symbol_or_pattern: 'UPDATE "Account" SET "balance"'
+          line_as_of: 88
+          last_verified: 2026-01-01
+      - service: worker-service
+        mechanism: raw-sql
+        anchor:
+          file: jobs/reconcile/settle.go
+          symbol_or_pattern: 'UPDATE "Account" SET "balance"'
+          line_as_of: 44
+          last_verified: 2026-01-01
+    readers:
+      - { service: web-app, mechanism: orm }
+      - { service: api-service, mechanism: orm }
+    tier1_decomposable: false
+    notes: >
+      EXAMPLE. Account.balance is written by three services with no single owner
+      and no FK. Any rename or semantics change must land in all three repos at
+      once. Grep case-insensitively — an ORM camelCase write and a raw-SQL
+      PascalCase write are the same column; a missed writer is a production risk.
+
+# ── services ────────────────────────────────────────────────────────────────
+# Cross-service edges Mercury uses to order tickets (producer before consumer)
+# and to flag lockstep changes.
+#   sync_out    a synchronous call whose response shape couples caller to callee.
+#   events_pub  a message this service publishes.
+#   events_sub  a message this service consumes.
+services:
+  - name: web-app
+    sync_out:
+      - to: api-service
+        endpoint_pattern: "POST {API}/v1/accounts/{id}/charge (Bearer)"
+        verdict: lockstep # coupled on the response shape.
+        anchor:
+          file: src/server/api-client/accounts.ts
+          symbol_or_pattern: "/v1/accounts"
+          line_as_of: null
+          last_verified: 2026-01-01
+  - name: api-service
+    events_pub:
+      - exchange: platform.events
+        routing_key: account.updated
+        anchor:
+          file: internal/events/publisher.go
+          symbol_or_pattern: 'exchange = "platform.events"'
+          line_as_of: 15
+          last_verified: 2026-01-01
+  - name: worker-service
+    events_sub:
+      - binding: "account.#"
+        decode: tolerant # unknown fields dropped; enumerate event types before relying on this.
+        anchor:
+          file: internal/consumers/
+          symbol_or_pattern: "account.#"
+          line_as_of: null
+          last_verified: 2026-01-01
+
+# ── no_go_zones ──────────────────────────────────────────────────────────────
+# The one block the deterministic checker parses. Enumerate every member path
+# EXPLICITLY (a file or a directory prefix) — no brace globs, no prose summaries.
+# A member left out is a writer Mercury cannot see.
+no_go_zones:
+  - id: shared-write # must be a legal non-none coupling_zones value.
+    kind: shared-write # a table written by multiple services with no single owner.
+    members:
+      # One "repo:path" per writer of the shared column.
+      - "web-app:src/server/account/account-service.ts"
+      - "api-service:internal/account/balance.go"
+      - "worker-service:jobs/reconcile/settle.go"
+    why: >
+      EXAMPLE. Account.balance is written by three services with no owner and no
+      version gate — a rename or semantics change must land in all three repos
+      atomically, which nothing enforces. Route any change here to a human as a
+      single cross-repo-lockstep ticket, never split across repos.
+    decoupling_fix: introduce one balance-ledger owner the others call.
+    fix_status: unshipped

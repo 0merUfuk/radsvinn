@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 15200,
+  "num_turns": 1,
+  "result": "{\"level\": \"ticket\", \"temp_id\": \"S1\", \"scores\": {\"why\": {\"score\": 8, \"justification_tr\": \"İntent net ve iş değeri somut: destek araştırması dakikalara iner. Ask'a sadık — istenen tam olarak bu observability.\"}, \"related_links\": {\"score\": 7, \"justification_tr\": \"Anchor doğru dosyayı (balance.go) gösteriyor; symbol seviyesine inen bir anchor (repo:path:symbol) aramayı daha da kısaltırdı.\"}, \"definition_of_done\": {\"score\": 8, \"justification_tr\": \"DoD somut ve testable: log alanları tek tek sayılmış, \\\"davranış değişmez\\\" garantisi var.\"}, \"technical_analysis\": {\"score\": 9, \"justification_tr\": \"Coupling dürüstlüğü artık DOĞRU: anchor'ın shared-write no-go-zone üyesi balance.go içinde olduğu kabul edilmiş, coupling_zones [\\\"shared-write\\\"] + needs-human routing + high effort_tier ile işaretlenmiş. Precheck zone_routing artık temiz.\"}, \"acceptance_criteria\": {\"score\": 8, \"justification_tr\": \"Kriterler bağımsız test edilebilir: log içeriği, davranış regresyonu ve parse edilebilirlik ayrı ayrı doğrulanabilir.\"}}, \"critical_improvements_tr\": [\"code_anchor'ı düşümün yapıldığı fonksiyona daraltın (api-service:internal/account/balance.go:DeductCredits gibi) — zaten needs-human olduğu için bloklamaz, sadece netlik.\"], \"suggested_rewrite\": null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-ticket-judge__sample-03__S1",
+  "total_cost_usd": 0.0188,
+  "usage": {
+    "input_tokens": 3400,
+    "output_tokens": 640,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned ticket-judge for the HEALED sample-03 plan (post FIX B self-heal): zone routing corrected, judge scores it PASS (weighted 83.0). precheckHardFail is now false, so this LLM verdict stands (no M3 force-BLOCK)."
+}

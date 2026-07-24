@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0merUfuk/mercury/contracts/skeleton.schema.json",
+  "title": "Mercury Break-Down skeleton (Phase 1 output)",
+  "description": "The structural skeleton emitted by the Decomposer: ticket shape and sequencing, before the Groomer writes full ticket content.",
+  "type": "object",
+  "required": ["plan_id", "requester", "mode", "epic", "milestones", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": { "type": "string", "minLength": 1 },
+    "requester": { "type": "string", "minLength": 1, "description": "Jira accountId (or calibration fixture id)" },
+    "mode": { "enum": ["front_door", "groom_existing"] },
+    "output_language": { "type": "string", "enum": ["en", "tr", "both"], "description": "Optional allowlisted Decomposer compatibility metadata. Audited by the skeleton gate; it never overrides the request-level language." },
+    "epic": {
+      "description": "null for a standalone small ask (one-node skeleton, no epic)",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["temp_id", "summary", "why"],
+          "additionalProperties": false,
+          "properties": {
+            "temp_id": { "type": "string", "minLength": 1 },
+            "summary": { "type": "string", "minLength": 1 },
+            "why": { "type": "string", "minLength": 1, "description": "prose in the output language (default English)" },
+            "existing_key": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[A-Z]+-[0-9]+$" }] }
+          }
+        }
+      ]
+    },
+    "milestones": {
+      "type": "array",
+      "description": "Empty array allowed for a one-node skeleton.",
+      "items": {
+        "type": "object",
+        "required": ["milestone_id", "name", "goal", "order"],
+        "additionalProperties": false,
+        "properties": {
+          "milestone_id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "goal": { "type": "string", "minLength": 1, "description": "the shippable increment this phase delivers" },
+          "order": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["temp_id", "type", "parent_temp_id", "depends_on", "milestone_id", "repo", "size_estimate", "one_line_summary"],
+        "additionalProperties": false,
+        "properties": {
+          "temp_id": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["Story", "Task", "Feature", "Request", "Bug", "Test", "Sub-task"] },
+          "parent_temp_id": {
+            "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }],
+            "description": "containment edge (belongs-to). L0 items: the epic temp_id or null (standalone). Sub-task: exactly one L0 item temp_id."
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "sequence edge (must-come-first) — becomes Jira Blocks links"
+          },
+          "milestone_id": {
+            "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }],
+            "description": "null only when milestones is empty (one-node skeleton)"
+          },
+          "repo": {
+            "enum": ["web-app", "api-service", "worker-service", "shared-lib", "cross-repo-lockstep"],
+            "description": "single repo per item; cross-repo-lockstep marks a no-go-zone ticket routed to a human"
+          },
+          "size_estimate": {
+            "type": "object",
+            "required": ["tier", "predicted_cost_usd", "rationale"],
+            "additionalProperties": false,
+            "properties": {
+              "tier": { "enum": ["low", "medium", "high", "max"] },
+              "predicted_cost_usd": { "type": "number", "minimum": 0 },
+              "rationale": { "type": "string", "minLength": 1 }
+            }
+          },
+          "one_line_summary": { "type": "string", "minLength": 1, "description": "output language (default English); technical jargon always English" }
+        }
+      }
+    }
+  }
+}

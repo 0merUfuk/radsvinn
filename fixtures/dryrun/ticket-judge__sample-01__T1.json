@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"ticket\",\"temp_id\":\"T1\",\"scores\":{\"why\":{\"score\":8,\"justification_tr\":\"İntent net: toplu üretimin backend yapı taşı ve queue UI'ın tetikleyeceği producer. İş değeri (power user verimliliği) açık; teknik spec'e kaymamış.\"},\"related_links\":{\"score\":7,\"justification_tr\":\"code_anchors (internal/api, internal/service) load-bearing ve işin geçtiği yeri gösteriyor. external link yok — ask zaten dış doküman ima etmiyor, kabul edilebilir.\"},\"definition_of_done\":{\"score\":8,\"justification_tr\":\"Tamamlanma kontratı somut ve testable: endpoint kabulü, fan-out, batch_id, durum sorgusu, kredi düşümünün mevcut yoldan geçmesi. PM ve dev birlikte imzalar.\"},\"technical_analysis\":{\"score\":9,\"justification_tr\":\"Executability core güçlü: fan-out modeli, kredi/idempotency semantiğinin korunması, shared-write zone'una girilmediği açıkça belirtilmiş. Routing metadata coupling map ile tutarlı.\"},\"acceptance_criteria\":{\"score\":9,\"justification_tr\":\"Kriterler bağımsız test edilebilir: 202+batch_id, tek kredi düşümü (çift düşüm yok), durum sayıları, kısmi fail, 50+ eleman reddi. Error path'ler kapsanmış.\"}},\"critical_improvements_tr\":[\"AC'ye eşzamanlı iki batch isteğinde idempotency/rate davranışını netleştiren bir kriter eklenebilir (ör. aynı batch iki kez submit edilirse).\"],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-ticket-judge__sample-01__T1",
+  "total_cost_usd": 0.0326,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=ticket-judge__sample-01__T1 — plumbing only"
+}

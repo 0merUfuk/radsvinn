@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9120,
+  "num_turns": 1,
+  "result": "{\"level\":\"tree\",\"scores\":{\"right_sizing\":{\"score\":9,\"justification_tr\":\"T1/T2/T3 leaf'leri bandda: her biri tek dev, tek odaklı PR, predicted_cost_usd $5-7 (well under $10). Ne dev bir leaf ne de trivial ticket swarm'ı var.\"},\"ordering_dependencies\":{\"score\":9,\"justification_tr\":\"depends_on kenarları gerçek: T2 (queue UI) ve T3 (notification publish) producer T1'in (batch endpoint) arkasında sıralanmış — producer-before-consumer. Uydurulan ya da eksik kenar yok.\"},\"milestone_coherence\":{\"score\":8,\"justification_tr\":\"M1/M2/M3 vertical slice'lar ve her biri demoable: M1 sonrası batch endpoint tek başına test edilebilir, M2 sonrası UI çalışır, M3 sonrası bildirim gider. Sınırlar keyfi değil.\"},\"coverage\":{\"score\":8,\"justification_tr\":\"Ask'ın üç parçası (batch endpoint, queue UI, notification) da leaf'lerle karşılanmış; kredi ve yeni-kategori sınırlarına saygı gösterilmiş. Eksik parça yok, fazladan icat yok.\"},\"slice_quality\":{\"score\":8,\"justification_tr\":\"Slice'lar servis sınırlarına göre: api-service backend (T1,T3) ve web-app FE (T2) ayrı; tek ticket iki repo'ya yazmıyor. shared-write no-go zone'una girilmemiş.\"}},\"critical_improvements_tr\":[\"T2 queue UI'ı ileride 'batch oluşturma formu' ve 'job listesi + progress' olarak iki story'ye bölmek reviewability'yi artırabilir; iter-1 bandı için tek ticket kabul edilebilir.\"],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-tree-judge__sample-01",
+  "total_cost_usd": 0.0417,
+  "usage": {
+    "input_tokens": 2600,
+    "output_tokens": 900,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=tree-judge__sample-01 — plumbing only"
+}

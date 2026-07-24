@@ -1,0 +1,30 @@
+# Keep the image to what the running service needs. fixtures/ is KEPT (the
+# fake engine reads fixtures/e2e-sample — cheap, and lets an operator smoke
+# the container with MERCURY_ENGINE=fake). prompts/, .claude/, tools/,
+# contracts/, coupling-map.yaml all ride in via COPY . .
+
+# never bake VCS state, internal agent/session artifacts, or local outputs in
+.git
+.gitignore
+.agents/
+tasks/
+CODEX-HANDOFF.md
+CODEX_HANDOFF.md
+results/
+harness/results/
+harness/node_modules/
+bin/
+*.log
+.DS_Store
+
+# never bake secrets in
+.env
+*.env
+
+# service tests run in CI, not in the image
+service/test/
+
+# container plumbing itself is not needed inside the image
+Dockerfile
+.dockerignore
+railway.json

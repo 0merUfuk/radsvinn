@@ -1,0 +1,123 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  public-hygiene:
+    name: public release hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: scan releasable files
+        run: make public-scan
+
+  go-checks:
+    name: deterministic checks (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build
+        run: go build ./...
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -count=1 ./...
+
+  harness:
+    name: calibration harness (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: harness/package-lock.json
+      - name: install
+        working-directory: harness
+        run: npm ci
+      - name: syntax
+        working-directory: harness
+        run: for f in *.mjs; do node --check "$f"; done
+      - name: test
+        working-directory: harness
+        run: npm test
+      # NOTE: the full --dry-run is a LOCAL instrument, not CI — it builds treecheck
+      # and greps the sibling ../grounding checkout for anchor existence, which does not
+      # exist on a CI runner. Go tests above cover the deterministic layer.
+
+  # Planner-service tests use deterministic fakes: no provider, tracker, or
+  # remote-grounding calls and no credentials. Tests invoke the real Go checker
+  # where applicable; direct HTTP cases may skip anchors while dedicated tests
+  # prepare local git fixtures for plan-mode coverage.
+  service:
+    name: planner service (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: syntax
+        run: for f in service/*.mjs service/test/*.mjs; do node --check "$f"; done
+      - name: test (fake engine, plan-gate anchors skipped)
+        env:
+          MERCURY_ENGINE: fake
+          MERCURY_SKIP_PLAN_ANCHORS: '1'
+        # Use an explicit glob: Node's test runner does not recurse through a
+        # bare directory argument on the declared Node 22 runtime.
+        run: node --test service/test/*.test.mjs
+
+  dashboard:
+    name: dashboard BFF (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: syntax
+        run: for f in dashboard/server.mjs dashboard/lib/*.mjs dashboard/public/app.js dashboard/test/*.mjs; do node --check "$f"; done
+      - name: test (fake GitHub + fake planner; no network, no secrets)
+        working-directory: dashboard
+        run: node --test test/*.test.mjs
+      - name: bundle secret scan
+        working-directory: dashboard
+        # Belt-and-suspenders alongside test/secret-scan.test.mjs: the shipped
+        # client bundle must never contain an env name or credential prefix.
+        run: |
+          if grep -rInE 'DASH_[A-Z_]+|MERCURY_SERVICE_TOKEN|ghp_|gho_|github_pat_|xoxb-|xapp-' public/; then
+            echo "FATAL: secret-shaped string found in the client bundle"; exit 1
+          fi
+
+  # Guards the bundled deterministic fixture surface: skeleton validation,
+  # tracker dry-run structure, and ADF rendering all stay offline. Plan-mode
+  # anchor behavior is covered by Go and service tests with local git fixtures.
+  offline-fixtures:
+    name: bundled fixture surface (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: treecheck skeleton gate (bundled fixture)
+        run: go run ./cmd/treecheck -mode=skeleton < fixtures/e2e-sample/skeleton.json
+      - name: create-tree syntax
+        run: node --check tools/create-tree.mjs
+      - name: create-tree offline dry-run (full scope)
+        run: node tools/create-tree.mjs --plan fixtures/e2e-sample/plan.json --scope full
+      - name: create-tree ADF render
+        run: node tools/create-tree.mjs --plan fixtures/e2e-sample/plan.json --show-adf > /dev/null

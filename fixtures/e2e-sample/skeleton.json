@@ -1,0 +1,69 @@
+{
+  "plan_id": "ghps-2026-07-07-a1b2c3d4",
+  "requester": "test-requester",
+  "mode": "front_door",
+  "epic": {
+    "temp_id": "epic-1",
+    "summary": "Growth: Search generation history by prompt text",
+    "why": "Users cannot find their old generations on the web-app history page — it is an undifferentiated infinite scroll. Letting a user type part of a prompt and see matching generations makes their own creative history retrievable, cutting frustration and abandonment on the history page.",
+    "existing_key": null
+  },
+  "milestones": [
+    {
+      "milestone_id": "m1",
+      "name": "Searchable backend",
+      "goal": "The generation history API can return a user's generations filtered by a prompt-text substring, backed by an index so search stays fast on large histories.",
+      "order": 1
+    },
+    {
+      "milestone_id": "m2",
+      "name": "History search UI",
+      "goal": "A user can type part of a prompt on the history page and see only the matching generations.",
+      "order": 2
+    }
+  ],
+  "items": [
+    {
+      "temp_id": "i1",
+      "type": "Task",
+      "parent_temp_id": "epic-1",
+      "depends_on": [],
+      "milestone_id": "m1",
+      "repo": "web-app",
+      "size_estimate": {
+        "tier": "low",
+        "predicted_cost_usd": 2.0,
+        "rationale": "Single Prisma migration adding a text-search index (e.g. pg_trgm) on the generation prompt column; no application logic, additive and reversible."
+      },
+      "one_line_summary": "Add prompt-text search index migration for generations"
+    },
+    {
+      "temp_id": "i2",
+      "type": "Story",
+      "parent_temp_id": "epic-1",
+      "depends_on": ["i1"],
+      "milestone_id": "m1",
+      "repo": "web-app",
+      "size_estimate": {
+        "tier": "medium",
+        "predicted_cost_usd": 4.5,
+        "rationale": "Add a prompt-text filter param to the generation history endpoint: query builder change, user-scoped filtering, pagination preserved. One focused PR; depends on the index from i1."
+      },
+      "one_line_summary": "Add prompt-text filter to generation history endpoint"
+    },
+    {
+      "temp_id": "i3",
+      "type": "Story",
+      "parent_temp_id": "epic-1",
+      "depends_on": ["i2"],
+      "milestone_id": "m2",
+      "repo": "web-app",
+      "size_estimate": {
+        "tier": "medium",
+        "predicted_cost_usd": 4.0,
+        "rationale": "Add a debounced search input to the history page wired to the new filter param, with empty/no-results states; consumes i2's endpoint."
+      },
+      "one_line_summary": "Add prompt search input to history page"
+    }
+  ]
+}

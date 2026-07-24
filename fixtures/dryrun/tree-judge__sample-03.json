@@ -1,0 +1,17 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 9400,
+  "num_turns": 1,
+  "result": "{\"level\":\"tree\",\"scores\":{\"right_sizing\":{\"score\":9,\"justification_tr\":\"Tek satırlık observability işi için tek düğümlü skeleton doğru right-sizing: epic/milestone ceremony’si eklenmemiş, leaf $2 ile bandın rahat içinde.\"},\"ordering_dependencies\":{\"score\":9,\"justification_tr\":\"Tek leaf, bağımlılık yok; boş depends_on doğru — sıralama sorusu bu ask için anlamsız.\"},\"milestone_coherence\":{\"score\":8,\"justification_tr\":\"Milestone yok ve gerekmiyor; tek shippable birim kendisi. One-node skeleton için tutarlı.\"},\"coverage\":{\"score\":9,\"justification_tr\":\"Ask’ın tamamı (kredi düşümüne structured log) tek leaf ile karşılanıyor; fazladan iş icat edilmemiş, eksik parça yok.\"},\"slice_quality\":{\"score\":9,\"justification_tr\":\"Tek repo (api-service), tek dosya civarı bir dilim; zaten atomik. Bölmeye gerek yok.\"}},\"critical_improvements_tr\":[],\"suggested_rewrite\":null}",
+  "stop_reason": "end_turn",
+  "session_id": "dryrun-tree-judge__sample-03",
+  "total_cost_usd": 0.0287,
+  "usage": {
+    "input_tokens": 3800,
+    "output_tokens": 850,
+    "service_tier": "standard"
+  },
+  "_dryrun_note": "canned envelope for judge phase, key=tree-judge__sample-03 — plumbing only; intentionally exercises the zone_routing hard-fail -> forced BLOCK path"
+}

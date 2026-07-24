@@ -1,0 +1,15 @@
+results/
+harness/results/
+harness/node_modules/
+bin/
+/treecheck
+*.log
+.DS_Store
+
+# Local secrets (Jira token etc.) — never commit
+.env
+*.env
+
+# local planning + session handoff (never committed/pushed)
+planning/
+SESSION-HANDOFF.md
