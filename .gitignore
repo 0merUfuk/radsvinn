@@ -13,3 +13,6 @@ bin/
 # local planning + session handoff (never committed/pushed)
 planning/
 SESSION-HANDOFF.md
+
+# Local/private agent ecosystem state — not for public repos
+.claude/
