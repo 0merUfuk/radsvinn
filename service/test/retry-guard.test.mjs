@@ -61,6 +61,17 @@ function readSentinel(recordPath) {
   return JSON.parse(fs.readFileSync(recordPath, 'utf8')).sentinel;
 }
 
+function writeSpawnTrap(dir, binaryName, markerPath) {
+  const binaryPath = path.join(dir, binaryName);
+  fs.writeFileSync(binaryPath, [
+    '#!/bin/sh',
+    `printf '%s\\n' ${JSON.stringify(`${binaryName} spawned`)} >> ${JSON.stringify(markerPath)}`,
+    'exit 97',
+    '',
+  ].join('\n'));
+  fs.chmodSync(binaryPath, 0o755);
+}
+
 // POSTs the retry, asserts the 202 {status:'creating'} contract, and polls
 // until the recovery worker settles the plan out of `creating`.
 async function retryAndSettle(ctx, planId) {
@@ -311,7 +322,14 @@ test('retry write guard engine guard: create() refuses over an existing record w
   // Direct unit test of the defense-in-depth layer — no server involved.
   // Explicitly clear the knobs (and restore after) so this test is immune to
   // ordering: the clean-empty leg below runs a REAL fake create.
-  const knobs = ['RADSVINN_FAKE_CREATE_FAIL', 'RADSVINN_FAKE_CREATE_PARTIAL', 'RADSVINN_FAKE_VERIFY_FAIL'];
+  const knobs = [
+    'RADSVINN_FAKE_CREATE_FAIL',
+    'RADSVINN_FAKE_CREATE_PARTIAL',
+    'RADSVINN_FAKE_VERIFY_FAIL',
+    'RADSVINN_AGENT_RUNTIME',
+    'RADSVINN_LLM_PROVIDER',
+    'PATH',
+  ];
   const prev = {};
   for (const k of knobs) { prev[k] = process.env[k]; delete process.env[k]; }
   t.after(() => {
@@ -323,6 +341,13 @@ test('retry write guard engine guard: create() refuses over an existing record w
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-engine-guard-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const fixtureBin = path.join(tmp, 'runtime-bin');
+  const spawnMarker = path.join(tmp, 'unexpected-spawn.txt');
+  fs.mkdirSync(fixtureBin, { recursive: true });
+  for (const binaryName of ['claude', 'codex', 'node']) writeSpawnTrap(fixtureBin, binaryName, spawnMarker);
+  process.env.PATH = fixtureBin;
+  process.env.RADSVINN_LLM_PROVIDER = 'anthropic';
+
   const engine = createEngine('fake');
 
   // (1) non-empty record → refuse, and leave the record byte-identical.
@@ -356,13 +381,28 @@ test('retry write guard engine guard: create() refuses over an existing record w
   assert.deepEqual(result.created.map((c) => c.key), ['PROJ-999']);
   assert.equal(JSON.parse(fs.readFileSync(cleanPath, 'utf8')).created.length, 1, 'clean-empty record was overwritten');
 
-  // (5) the REAL engine carries the same guard, and it throws BEFORE any
-  // spawn — so this leg never touches a subprocess, credentials, or Jira.
-  const realDir = path.join(tmp, 'real-non-empty');
-  fs.mkdirSync(realDir, { recursive: true });
-  fs.writeFileSync(path.join(realDir, 'plan.json'), '{}'); // pass the plan.json precondition
-  fs.writeFileSync(path.join(realDir, CREATED_RECORD_FILENAME), JSON.stringify({ created: [{ key: 'PROJ-1' }], links: [] }));
-  await assert.rejects(() => createEngine('real').create({ runDir: realDir }), /refusing to re-create/);
+  // (5) the REAL engine carries the same guard for both supported agent
+  // runtimes. Fixture executables make eager runtime discovery hermetic; every
+  // fixture binary is also a trap, so any unexpected agent or create-tree spawn
+  // writes spawnMarker and exits before it can reach credentials, network, or
+  // actual user tools.
+  assert.equal(process.env.PATH, fixtureBin, 'real-engine guard uses the isolated fixture-only PATH');
+  for (const runtime of ['claude', 'codex']) {
+    process.env.RADSVINN_AGENT_RUNTIME = runtime;
+    const realEngine = createEngine('real');
+    assert.equal(fs.existsSync(spawnMarker), false, `${runtime} runtime discovery must not spawn`);
+
+    const realDir = path.join(tmp, `real-non-empty-${runtime}`);
+    fs.mkdirSync(realDir, { recursive: true });
+    fs.writeFileSync(path.join(realDir, 'plan.json'), '{}'); // pass the plan.json precondition
+    const realRecordPath = path.join(realDir, CREATED_RECORD_FILENAME);
+    const realRecordBody = JSON.stringify({ created: [{ key: `PROJ-${runtime === 'claude' ? '1' : '2'}` }], links: [] });
+    fs.writeFileSync(realRecordPath, realRecordBody);
+
+    await assert.rejects(() => realEngine.create({ runDir: realDir }), /refusing to re-create/);
+    assert.equal(fs.readFileSync(realRecordPath, 'utf8'), realRecordBody, `${runtime} refused create must not touch the record`);
+    assert.equal(fs.existsSync(spawnMarker), false, `${runtime} guard must throw before any agent or create-tree spawn`);
+  }
 });
 
 // -- beyond the matrix: fail-closed edges ------------------------------------
