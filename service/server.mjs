@@ -150,7 +150,11 @@ function resultCostNanos(result) {
     if (!Number.isSafeInteger(result.costNanos) || result.costNanos < 0) throw new Error('invalid provider-authoritative cost telemetry');
     return result.costNanos;
   }
-  return usdToNanosForServer(result.costUsd);
+  // A runtime that cannot report cost (e.g. Codex) returns costUsd: undefined
+  // with costTelemetryStatus: 'unavailable'. Treat undefined as 0 nanos —
+  // the same guard planCostNanos uses. The plan still runs; the daily breaker
+  // cannot count it (a known, documented degradation, not a silent zero).
+  return usdToNanosForServer(result.costUsd === undefined ? 0 : result.costUsd);
 }
 
 function displayUsd(costNanos) {

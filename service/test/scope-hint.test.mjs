@@ -86,27 +86,37 @@ test('scope_hint wire: the service passes scopeHint (and outputLanguage) into en
 
 test('phase1Message: `# SCOPE` injected with HARD wording for single/small/epic; auto and absent inject nothing', () => {
   const base = { ask: 'do the thing', requester: 'test-requester', roleLens: 'business', runDir: '/tmp/run-x', outputLanguage: 'en' };
+  const directiveTail = (message) => {
+    const marker = '\n\n# OUTPUT LANGUAGE\n';
+    const index = message.lastIndexOf(marker);
+    assert.notEqual(index, -1, 'the composed directive tail has an output-language anchor');
+    return message.slice(index + 2);
+  };
 
   const single = phase1Message({ ...base, scopeHint: 'single' });
-  assert.match(single, /# SCOPE/);
-  assert.match(single, /ONE-NODE skeleton: epic null, milestones \[\], exactly one item — do NOT decompose further/);
-  assert.match(single, /OVERRIDES your size judgment/, 'the directive states it is the user decision, not a suggestion');
+  const singleTail = directiveTail(single);
+  assert.match(singleTail, /# SCOPE/);
+  assert.match(singleTail, /ONE-NODE skeleton: epic null, milestones \[\], exactly one item — do NOT decompose further/);
+  assert.match(singleTail, /OVERRIDES your size judgment/, 'the directive states it is the user decision, not a suggestion');
   // The directive must precede the ask so it governs the decomposition
   // instead of reading as part of the request text.
-  assert.ok(single.indexOf('# SCOPE') < single.indexOf('do the thing'), 'the SCOPE block precedes the ask');
-  assert.ok(single.startsWith('# OUTPUT LANGUAGE'), 'the language directive still leads');
+  assert.ok(singleTail.indexOf('# SCOPE') < singleTail.indexOf('do the thing'), 'the SCOPE block precedes the ask');
+  assert.ok(single.startsWith('# Mercury Decomposer — Phase 1 (Break-Down)'),
+    'the decomposer prompt body now leads the composed message');
+  assert.ok(singleTail.indexOf('# OUTPUT LANGUAGE') < singleTail.indexOf('# SCOPE'),
+    'the language directive still leads the service-specific directives');
 
-  const small = phase1Message({ ...base, scopeHint: 'small' });
-  assert.match(small, /# SCOPE/);
-  assert.match(small, /2-5 items, epic null — no epic ceremony/);
+  const smallTail = directiveTail(phase1Message({ ...base, scopeHint: 'small' }));
+  assert.match(smallTail, /# SCOPE/);
+  assert.match(smallTail, /2-5 items, epic null — no epic ceremony/);
 
-  const epic = phase1Message({ ...base, scopeHint: 'epic' });
-  assert.match(epic, /# SCOPE/);
-  assert.match(epic, /full epic breakdown is expected/);
+  const epicTail = directiveTail(phase1Message({ ...base, scopeHint: 'epic' }));
+  assert.match(epicTail, /# SCOPE/);
+  assert.match(epicTail, /full epic breakdown is expected/);
 
   for (const hint of ['auto', undefined]) {
-    const msg = phase1Message({ ...base, scopeHint: hint });
-    assert.equal(msg.includes('# SCOPE'), false, `scope "${hint}" must inject nothing — the prompt rules stand`);
+    const tail = directiveTail(phase1Message({ ...base, scopeHint: hint }));
+    assert.equal(tail.includes('# SCOPE'), false, `scope "${hint}" must inject nothing — the prompt rules stand`);
   }
 });
 

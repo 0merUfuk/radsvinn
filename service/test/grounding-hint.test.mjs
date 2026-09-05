@@ -273,16 +273,22 @@ test('phase1Message: `light` injects the `# GROUNDING` block after `# SCOPE`; fu
   assert.match(light, /do NOT exhaustively grep or crawl the repos/);
   assert.match(light, /acceptable for this plan to\ncarry fewer code_anchors/);
   assert.match(light, /OVERRIDES your default grounding thoroughness/, 'the directive states it is the user decision, not a suggestion');
-  // Placement: directives precede the ask so they govern the decomposition
-  // instead of reading as request text; language still leads.
+  // Placement: the role body leads, then directives precede the ask so they
+  // govern the decomposition instead of reading as request text.
   assert.ok(light.indexOf('# GROUNDING') < light.indexOf('do the thing'), 'the GROUNDING block precedes the ask');
-  assert.ok(light.startsWith('# OUTPUT LANGUAGE'), 'the language directive still leads');
+  assert.ok(light.startsWith('# Mercury Decomposer — Phase 1 (Break-Down)'),
+    'the decomposer prompt body now leads the composed message');
+  const outputLanguageIndex = light.lastIndexOf('\n\n# OUTPUT LANGUAGE\n') + 2;
+  assert.ok(outputLanguageIndex >= 2, 'the composed directive tail has an output-language anchor');
+  assert.ok(outputLanguageIndex < light.indexOf('# GROUNDING'),
+    'the language directive still leads the service-specific directives');
 
   // Both directives present: SCOPE (what to produce) before GROUNDING (how
   // to verify it) — the deliberate order documented in engine.mjs.
   const both = phase1Message({ ...base, scopeHint: 'single', groundingHint: 'light' });
-  assert.ok(both.indexOf('# SCOPE') < both.indexOf('# GROUNDING'), 'SCOPE precedes GROUNDING');
-  assert.ok(both.indexOf('# GROUNDING') < both.indexOf('do the thing'), 'both precede the ask');
+  const bothTail = both.slice(both.lastIndexOf('\n\n# OUTPUT LANGUAGE\n') + 2);
+  assert.ok(bothTail.indexOf('# SCOPE') < bothTail.indexOf('# GROUNDING'), 'SCOPE precedes GROUNDING');
+  assert.ok(bothTail.indexOf('# GROUNDING') < bothTail.indexOf('do the thing'), 'both precede the ask');
 
   // The asymmetric default, proven byte-for-byte: full/absent/unknown all
   // produce EXACTLY the pre-change message — today's behavior untouched.

@@ -20,9 +20,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { phase1Message, groomMessage } from '../engine.mjs';
+import { MERCURY_ROOT } from '../state.mjs';
+import { phase1Message, groomMessage, loadPromptBody } from '../engine.mjs';
 
 const BASE = { ask: 'do the thing', requester: 'test-requester', roleLens: 'business', runDir: '/tmp/run-x', outputLanguage: 'en' };
+const DECOMPOSER_PROMPT = path.join(MERCURY_ROOT, 'prompts', 'decomposer.md');
+const GROOMER_PROMPT = path.join(MERCURY_ROOT, 'prompts', 'groomer.md');
 
 // Saves + restores one env var around a test (same discipline as the
 // buildClaudeArgs test in grounding-hint.test.mjs).
@@ -33,6 +36,41 @@ function stashEnv(t, key) {
     else process.env[key] = prev;
   });
 }
+
+// ---------------------------------------------------------------------------
+// Prompt-body delivery
+// ---------------------------------------------------------------------------
+
+test('prompt bodies lead both composed messages; loader trims, caches, and degrades without throwing', (t) => {
+  const decomposerBody = loadPromptBody(DECOMPOSER_PROMPT);
+  const groomerBody = loadPromptBody(GROOMER_PROMPT);
+  const p1 = phase1Message(BASE);
+  const groom = groomMessage({ edited: false, runDir: BASE.runDir, outputLanguage: 'en' });
+
+  assert.ok(p1.startsWith(`${decomposerBody}\n\n# OUTPUT LANGUAGE\nen\n`),
+    'phase1 starts with the complete decomposer body before its directives');
+  assert.ok(groom.startsWith(`${groomerBody}\n\n# OUTPUT LANGUAGE\nen\n`),
+    'groom starts with the complete groomer body before its directives');
+  assert.match(decomposerBody, /Emit \*\*exactly one JSON object\*\* conforming to `contracts\/skeleton\.schema\.json`/,
+    'the delivered decomposer body carries the schema contract');
+  assert.match(groomerBody, /Emit \*\*exactly one JSON object\*\* conforming to `contracts\/plan\.schema\.json`/,
+    'the delivered groomer body carries the schema contract');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-prompt-cache-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const cachedPath = path.join(dir, 'cached.md');
+  fs.writeFileSync(cachedPath, '  prompt-cache-A  \n');
+  assert.equal(loadPromptBody(cachedPath), 'prompt-cache-A', 'the first read is trimmed');
+  fs.writeFileSync(cachedPath, 'prompt-cache-B');
+  assert.equal(loadPromptBody(cachedPath), 'prompt-cache-A', 'later edits do not bypass the per-path cache');
+
+  const missingPath = path.join(dir, 'missing.md');
+  let fallback;
+  assert.doesNotThrow(() => { fallback = loadPromptBody(missingPath); });
+  assert.equal(fallback, `[prompt body unavailable at ${missingPath} — emit valid JSON per the contract schema]`);
+  fs.writeFileSync(missingPath, 'late prompt body');
+  assert.equal(loadPromptBody(missingPath), fallback, 'the graceful fallback is cached per path too');
+});
 
 // ---------------------------------------------------------------------------
 // The `# TOOLS` directive

@@ -17,6 +17,8 @@ import path from 'node:path';
 import { MERCURY_ROOT } from './state.mjs';
 import { reposRoot } from './grounding.mjs';
 import { resolveCouplingMapPath } from './coupling-map.mjs';
+import { buildClaudeArgs as buildClaudeRuntimeArgs } from './runtimes/claude.mjs';
+import { resolveRuntime } from './runtimes/registry.mjs';
 import {
   CostTelemetryError,
   MeteredPhaseError,
@@ -36,9 +38,6 @@ const FIXTURE_PLAN = path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'plan.jso
 // structurally identical to the real thing where the safety logic looks.
 export const CREATED_RECORD_FILENAME = 'created-record.json';
 
-// harness/config.yaml `limits.call_timeout_minutes: 45` — the same generous
-// per-call ceiling the calibration harness already uses for Opus xhigh calls.
-const CALL_TIMEOUT_MS = 45 * 60 * 1000;
 // Control-plane create-tree spawns are API round-trips, not LLM calls.
 const CREATE_TIMEOUT_MS = 5 * 60 * 1000;
 const VERIFY_TIMEOUT_MS = 3 * 60 * 1000;
@@ -241,9 +240,14 @@ function createFakeEngine(env) {
 
 function createRealEngine() {
   // Resolve at construction, before the HTTP server begins accepting work.
-  // This validates an explicit OpenRouter selection without sending provider
-  // traffic; the first external request remains the first planning phase.
-  const runtime = resolveLlmRuntime();
+  // This validates both independent axes without sending provider traffic;
+  // the first external request remains the first planning phase.
+  const agentRuntime = resolveRuntime();
+  // Codex owns its OpenAI OAuth/provider path, so MERCURY_LLM_PROVIDER is
+  // intentionally irrelevant outside provider-configurable runtimes.
+  const providerRuntime = agentRuntime.id === 'claude'
+    ? resolveLlmRuntime()
+    : { provider: 'runtime-managed' };
   return {
     async phase1({ runDir, ask, requester, roleLens, outputLanguage, scopeHint, groundingHint, regen }) {
       const userMessage = phase1Message({ ask, requester, roleLens, runDir, outputLanguage, scopeHint, groundingHint, regen });
@@ -253,7 +257,7 @@ function createRealEngine() {
       // only on a bounded-regen re-entry) makes runPhase --resume the FAILED
       // session so the model sees its own rejected skeleton — composed ALONGSIDE
       // groundingHint, not in place of it.
-      return runPhase({ kind: 'phase1', runDir, userMessage, groundingHint, regen, runtime });
+      return runPhase({ kind: 'phase1', runDir, userMessage, groundingHint, regen, agentRuntime, providerRuntime });
     },
     async groom({ runDir, sessionId, edited, outputLanguage, groundingHint, itemCount, regenComplaints }) {
       const userMessage = groomMessage({ edited, runDir, outputLanguage, groundingHint, regenComplaints });
@@ -262,7 +266,21 @@ function createRealEngine() {
       // plan-size-scaled --max-turns cap to the argv (see buildClaudeArgs —
       // B5, the groom half of Light). itemCount sizes that cap
       // (base + perItem × n).
-      return runPhase({ kind: 'groom', runDir, sessionId, userMessage, groundingHint, itemCount, runtime });
+      // When complaints are present this is a bounded groom regeneration. The
+      // prompt already carries the complaints; this signal selects the rejected
+      // plan.json as cold-resume context if the runtime session cannot resume.
+      const groomRegen = regenComplaints ? { sessionId } : undefined;
+      return runPhase({
+        kind: 'groom',
+        runDir,
+        sessionId,
+        userMessage,
+        groundingHint,
+        itemCount,
+        regen: groomRegen,
+        agentRuntime,
+        providerRuntime,
+      });
     },
     // Phase 3 is a CONTROL-PLANE operation — no agent, no LLM (adjudicated
     // 2026-07-08, superseding this file's earlier "open decision" note). By
@@ -628,6 +646,25 @@ function couplingMapBlock() {
   ];
 }
 
+// Load and cache the prompt body. Read once per resolved path (the prompts
+// ship with the deploy image; they cannot change mid-run). Missing/unreadable
+// → a graceful fallback note, NEVER a throw (a laptop without the file should
+// not crash; the gate validates output regardless). Same discipline as
+// couplingMapBlock().
+const promptBodyCache = new Map();
+export function loadPromptBody(promptPath) {
+  if (promptBodyCache.has(promptPath)) return promptBodyCache.get(promptPath);
+  try {
+    const body = fs.readFileSync(promptPath, 'utf8').trim();
+    promptBodyCache.set(promptPath, body);
+    return body;
+  } catch {
+    const note = `[prompt body unavailable at ${promptPath} — emit valid JSON per the contract schema]`;
+    promptBodyCache.set(promptPath, note);
+    return note;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Bounded-regeneration complaint block (B1, 2026-07-13)
 // ---------------------------------------------------------------------------
@@ -663,8 +700,11 @@ export function phase1Message({ ask, requester, roleLens, runDir, outputLanguage
   const toolsDirective = serviceToolsDirective();
   const safePosture = toolsDirective.length > 0;
   return [
+    loadPromptBody(path.join(MERCURY_ROOT, 'prompts', 'decomposer.md')),
+    '',
     // The prompts honor `# OUTPUT LANGUAGE` (en|tr|both, default en). Injected
-    // at the TOP so it governs all prose the agent emits; jargon stays English.
+    // immediately after the role body so it governs all prose the agent emits;
+    // jargon stays English.
     '# OUTPUT LANGUAGE',
     outputLanguage || 'en',
     '',
@@ -733,6 +773,8 @@ export function groomMessage({ edited, runDir, outputLanguage, groundingHint, re
   const safePosture = toolsDirective.length > 0;
   const editNote = edited ? ' (service applied human edits to skeleton.json — re-read it)' : '';
   return [
+    loadPromptBody(path.join(MERCURY_ROOT, 'prompts', 'groomer.md')),
+    '',
     '# OUTPUT LANGUAGE',
     outputLanguage || 'en',
     '',
@@ -850,69 +892,20 @@ function lightGroomMaxTurns(itemCount) {
 }
 
 export function buildClaudeArgs({ userMessage, sessionId, resume, kind = 'groom', groundingHint, itemCount, regen, modelOverride }) {
-  const permissionMode = process.env.MERCURY_AGENT_PERMISSION_MODE || 'default';
-  const allowedToolsRaw = process.env.MERCURY_AGENT_ALLOWED_TOOLS ?? 'Read,Grep,Glob';
-  const { model: configuredModel, effort } = seatConfig(kind);
-  const model = modelOverride || configuredModel;
-
-  const args = ['-p', userMessage, '--output-format', 'json'];
-  // B1 session-resume fix (the fresh-UUID bug): a phase1 bounded-regen must
-  // `--resume` the FAILED session so the model sees its own rejected skeleton
-  // in-context — decompose otherwise ALWAYS started a fresh `--session-id`, so
-  // every regen re-explored from zero and never learned from its own reject.
-  // When `regen` is present it OVERRIDES both resume and sessionId; otherwise
-  // the caller's explicit resume/sessionId stand (byte-identical to pre-B1,
-  // and groom already resumed via kind !== 'phase1').
-  const effectiveResume = regen ? true : resume;
-  const effectiveSessionId = regen ? regen.sessionId : sessionId;
-  if (effectiveResume) {
-    args.push('--resume', effectiveSessionId);
-  } else {
-    args.push('--session-id', effectiveSessionId);
-  }
-  // Select the named planner definition explicitly; a headless invocation
-  // must not depend on implicit interactive-session configuration.
-  args.push('--agent', 'jira-planner');
-  args.push('--permission-mode', permissionMode);
-  // Frontmatter under `--agent` has a PROVEN failure mode (permissionMode
-  // silently ignored headless) — don't assume model/effort fare better;
-  // pass them explicitly.
-  args.push('--model', model);
-  args.push('--effort', effort);
-  // Light-mode turn cap (2026-07-11; extended to groom by B5, 2026-07-13):
-  // the DETERMINISTIC enforcement of "don't over-explore" — the `# GROUNDING`
-  // directive is the mechanism, this is the backstop, and it is the real
-  // latency lever (each tool-loop turn is a round trip). BOTH light calls are
-  // capped now: decompose at a flat `lightMaxTurns()`, groom at a
-  // plan-size-scaled `lightGroomMaxTurns(itemCount)`. Groom was originally
-  // left uncapped on the theory that it only writes content, but a real Light
-  // plan proved it re-crawls the repos per item (49 turns / $1.61, 94% of the
-  // bill) even though it RESUMES decompose's already-grounded session. The cap
-  // stops that wasteful re-exploration, NOT verification: a groom that hits it
-  // yields an incomplete artifact the deterministic gate rejects (fail-closed),
-  // so it can never silently truncate the fields the create gate approves.
-  // `full`/absent pass no cap in either phase, keeping today's argv
-  // byte-identical (the asymmetric-default rule again).
-  if (kind === 'phase1' && groundingHint === 'light') {
-    args.push('--max-turns', String(lightMaxTurns()));
-  } else if (kind === 'groom' && groundingHint === 'light') {
-    args.push('--max-turns', String(lightGroomMaxTurns(itemCount)));
-  }
-  if (allowedToolsRaw.trim().length > 0) {
-    const tools = allowedToolsRaw.split(',').map((t) => t.trim()).filter(Boolean);
-    if (tools.length > 0) args.push('--allowedTools', ...tools);
-  }
-  // child-env isolation: the grounding repos live OUTSIDE the app directory in the
-  // container (`/data/repos`, vs the laptop's sibling `../grounding`), and the
-  // agent's Read/Grep/Glob sandbox is scoped to its cwd — without an
-  // explicit --add-dir the planning agent could not read the very repos it
-  // grounds anchors in. Also the child-env isolation jail direction: ONE named directory is
-  // added, not a loosened permission mode. Only when the resolved root
-  // actually exists (a laptop without the sibling checkout keeps today's
-  // argv byte-identical).
-  const groundingRoot = reposRoot();
-  if (fs.existsSync(groundingRoot)) args.push('--add-dir', groundingRoot);
-  return args;
+  const maxTurns = groundingHint === 'light'
+    ? (kind === 'phase1' ? lightMaxTurns() : lightGroomMaxTurns(itemCount))
+    : undefined;
+  return buildClaudeRuntimeArgs({
+    userMessage,
+    sessionId,
+    resume,
+    kind,
+    regen,
+    seat: seatConfig(kind),
+    modelOverride,
+    maxTurns,
+    groundingRoot: reposRoot(),
+  });
 }
 
 // child-env isolation: the LLM subprocess's environment, minus every credential the
@@ -954,65 +947,7 @@ export function sandboxedEnv(env) {
   return out;
 }
 
-function runClaudeSpawn(args, childEnv = sandboxedEnv(process.env)) {
-  return new Promise((resolve, reject) => {
-    // argv ARRAY, never a shell string — `userMessage` embeds untrusted
-    // external input (the "ask"); shell interpolation here would be a
-    // straightforward command-injection hole. `spawn` with an argv array
-    // never invokes a shell, so this is safe regardless of `ask` content.
-    // Credentials the agent does not need are stripped — see sandboxedEnv.
-    const child = spawn('claude', args, {
-      cwd: MERCURY_ROOT,
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'], // stdin closed — detached-stdin hangs killed a prior run
-    });
-
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
-
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill('SIGKILL');
-      reject(new Error(`claude call timed out after ${CALL_TIMEOUT_MS}ms and was SIGKILLed. stderr tail: ${stderr.slice(-2000)}`));
-    }, CALL_TIMEOUT_MS);
-
-    child.stdout.on('data', (d) => { stdout += d; });
-    child.stderr.on('data', (d) => { stderr += d; });
-
-    child.on('error', (err) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(new Error(`failed to spawn claude: ${err.message}`));
-    });
-
-    child.on('close', (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (code !== 0) {
-        reject(new Error(`claude exited ${code}. stderr tail: ${stderr.slice(-2000)}`));
-        return;
-      }
-      let parsed;
-      try {
-        parsed = JSON.parse(stdout);
-      } catch (err) {
-        reject(new Error(`claude returned non-JSON stdout despite --output-format json: ${err.message}. stdout tail: ${stdout.slice(-2000)}`));
-        return;
-      }
-      if (parsed.is_error) {
-        reject(new Error(`claude reported is_error=true. result: ${JSON.stringify(parsed.result).slice(0, 2000)}. stderr tail: ${stderr.slice(-2000)}`));
-        return;
-      }
-      resolve(parsed);
-    });
-  });
-}
-
-async function runMeteredOpenRouterSpawn(args, runtime) {
+async function runMeteredOpenRouterSpawn({ runSpawn }, runtime) {
   const proxy = await startOpenRouterMeterProxy({ sourceKey: runtime.apiKey });
   const childEnv = openRouterChildEnv(sandboxedEnv(process.env), {
     baseUrl: proxy.baseUrl,
@@ -1021,7 +956,7 @@ async function runMeteredOpenRouterSpawn(args, runtime) {
   let parsed;
   let childError;
   try {
-    parsed = await runClaudeSpawn(args, childEnv);
+    parsed = await runSpawn(childEnv);
   } catch (err) {
     childError = err;
   }
@@ -1051,50 +986,87 @@ async function runMeteredOpenRouterSpawn(args, runtime) {
   return { parsed, ...accounting };
 }
 
-async function runPhase({ kind, runDir, sessionId, userMessage, groundingHint, itemCount, regen, runtime = { provider: 'anthropic' } }) {
-  const args = buildClaudeArgs({
-    // B1: `regen` present → --resume the failed session (regen.sessionId);
-    // else the pre-B1 behavior — phase1 starts a fresh session, groom resumes.
-    // buildClaudeArgs honors `regen` as the single override point, so the
-    // resume/sessionId computed here and there agree by construction.
-    userMessage,
-    sessionId: regen ? regen.sessionId : (kind === 'phase1' ? randomUUID() : sessionId),
-    resume: kind !== 'phase1' || Boolean(regen),
-    kind,
-    groundingHint,
-    itemCount,
-    regen,
-    // OpenRouter's child environment maps Claude Code's stable seat aliases
-    // to one exact DeepSeek slug.  Ignore any inherited Mercury model override
-    // here; passing a raw `claude-*` string would bypass that alias mapping and
-    // correctly be rejected by the proxy after wasting a local phase attempt.
-    modelOverride: runtime.provider === 'openrouter' ? 'opus' : undefined,
-  });
-  // Phase-timing observability (2026-07-11): wall-clock the spawn ourselves
-  // (always present, never trusts the child), then prefer the CLI's own
-  // duration_ms from the --output-format json result when it reports one —
-  // the result also carries num_turns (the agentic-loop turn count), the
-  // signal the grounding-depth work optimizes. Both ride the return so
-  // server.mjs can emit the structured phase log line.
+async function runPhase({
+  kind,
+  runDir,
+  sessionId,
+  userMessage,
+  groundingHint,
+  itemCount,
+  regen,
+  agentRuntime,
+  providerRuntime = { provider: 'anthropic' },
+}) {
+  // B1: a phase1 or groom bounded regeneration resumes the failed session;
+  // otherwise phase1 starts fresh and groom resumes its approved skeleton's
+  // session. Each adapter owns the runtime-specific argv for that decision.
+  const effectiveSessionId = regen
+    ? regen.sessionId
+    : (kind === 'phase1' ? randomUUID() : sessionId);
+  const resume = kind !== 'phase1' || Boolean(regen);
+  const seat = seatConfig(kind);
+  const maxTurns = groundingHint === 'light'
+    ? (kind === 'phase1' ? lightMaxTurns() : lightGroomMaxTurns(itemCount))
+    : undefined;
+  // OpenRouter's Anthropic-Messages proxy wraps only Claude's spawn. Codex
+  // owns its OpenAI OAuth/provider path and must never be sent through it.
+  const useOpenRouter = agentRuntime.id === 'claude' && providerRuntime.provider === 'openrouter';
+
   const artifactName = kind === 'phase1' ? 'skeleton.json' : 'plan.json';
   const artifactPath = path.join(runDir, artifactName);
+
+  // Cold-resume context: read the PRIOR artifact before fail-closed deletion.
+  let priorArtifactText;
+  const priorArtifactName = regen
+    ? artifactName
+    : (kind === 'groom' ? 'skeleton.json' : null);
+  if (priorArtifactName) {
+    const priorPath = path.join(runDir, priorArtifactName);
+    try {
+      if (fs.existsSync(priorPath)) {
+        priorArtifactText = fs.readFileSync(priorPath, 'utf8');
+      }
+    } catch {
+      // Non-fatal: cold resume degrades to no prior context; the gate still
+      // validates the resulting artifact.
+    }
+  }
+
   // A failed/uncertain prior phase must never donate an artifact to a retry.
   // Delete before each invocation and additionally on metering failure below;
   // the deterministic gate only ever sees a response that was fully metered.
   fs.rmSync(artifactPath, { force: true });
-  const startedAt = Date.now();
-  let meter;
+
+  let phaseResult;
   try {
-    meter = runtime.provider === 'openrouter'
-      ? await runMeteredOpenRouterSpawn(args, runtime)
-      : { parsed: await runClaudeSpawn(args), costNanos: undefined, costUsd: undefined };
+    phaseResult = await agentRuntime.runPhase({
+      kind,
+      runDir,
+      userMessage,
+      sessionId: effectiveSessionId,
+      resume,
+      groundingHint,
+      itemCount,
+      regen,
+      priorArtifactText,
+      seat,
+      maxTurns,
+      groundingRoot: reposRoot(),
+      repoRoot: MERCURY_ROOT,
+      childEnv: sandboxedEnv(process.env),
+      // OpenRouter's child environment maps Claude's stable seat aliases to
+      // one exact provider slug. Ignore inherited model overrides on this path.
+      modelOverride: useOpenRouter ? 'opus' : undefined,
+      reportedModel: useOpenRouter ? providerRuntime.model : undefined,
+      execute: useOpenRouter
+        ? ({ args, runSpawn }) => runMeteredOpenRouterSpawn({ args, runSpawn }, providerRuntime)
+        : undefined,
+    });
   } catch (err) {
     fs.rmSync(artifactPath, { force: true });
     throw err;
   }
-  const { parsed } = meter;
-  const wallMs = Date.now() - startedAt;
-  const resultText = typeof parsed.result === 'string' ? parsed.result : JSON.stringify(parsed.result);
+  const resultText = phaseResult.text;
 
   if (kind === 'phase1' || kind === 'groom') {
     if (!fs.existsSync(artifactPath)) {
@@ -1113,23 +1085,14 @@ async function runPhase({ kind, runDir, sessionId, userMessage, groundingHint, i
   }
 
   return {
-    sessionId: parsed.session_id || sessionId,
-    // Direct Anthropic retains its legacy CLI cost field unchanged.  For
-    // OpenRouter the only accepted value is the reconciled receipt aggregate;
-    // NEVER fall back to Claude Code's estimate.
-    costUsd: runtime.provider === 'openrouter'
-      ? meter.costUsd
-      : (typeof parsed.total_cost_usd === 'number' ? parsed.total_cost_usd : 0),
-    ...(runtime.provider === 'openrouter' ? { costNanos: meter.costNanos } : {}),
+    sessionId: phaseResult.sessionId || effectiveSessionId,
+    costUsd: phaseResult.costUsd,
+    ...(Object.hasOwn(phaseResult, 'costNanos') ? { costNanos: phaseResult.costNanos } : {}),
     resultText,
-    // Phase-timing fields (see the capture note above). numTurns stays
-    // undefined when the CLI doesn't report it — the log line prints `?`
-    // rather than fabricating a count.
-    durationMs: Number.isFinite(parsed.duration_ms) ? parsed.duration_ms : wallMs,
-    numTurns: Number.isFinite(parsed.num_turns) ? parsed.num_turns : undefined,
-    // The ACTUAL resolved model for this seat (same ladder buildClaudeArgs
-    // used) — the log line must name what really ran, not a guess.
-    model: runtime.provider === 'openrouter' ? runtime.model : seatConfig(kind).model,
+    durationMs: phaseResult.durationMs,
+    numTurns: phaseResult.numTurns,
+    model: phaseResult.model,
+    costTelemetryStatus: phaseResult.costTelemetryStatus,
   };
 }
 
