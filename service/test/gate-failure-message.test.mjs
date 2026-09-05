@@ -34,7 +34,7 @@ test('a structural fail leads with the ACTUAL complaint — never the old "overs
   // failure must surface its real complaint rather than obsolete scope advice.
   for (const plan of [{ scope_hint: 'single' }, { scope_hint: 'small' }, { scope_hint: 'auto' }, {}, undefined]) {
     const msg = describeSkeletonGateFailure(STRUCTURAL_GATE, plan);
-    assert.match(msg, /^Mercury's draft failed a required structural check: depends_on cycle/, 'the actual complaint leads');
+    assert.match(msg, /^Radsvinn's draft failed a required structural check: depends_on cycle/, 'the actual complaint leads');
     assert.doesNotMatch(msg, /oversized ticket/, 'the old misrouted sizing copy is gone');
     assert.doesNotMatch(msg, /bigger than your/, 'no sizing×scope advice — that branch is removed');
   }
@@ -58,7 +58,7 @@ test('a contract hard-fail leads with a clean human sentence, no raw JSON', () =
     },
   };
   const msg = describeSkeletonGateFailure(contractGate, { scope_hint: 'auto' });
-  assert.match(msg, /^Mercury's draft didn't match the required ticket shape \(a contract error:/);
+  assert.match(msg, /^Radsvinn's draft didn't match the required ticket shape \(a contract error:/);
   assert.match(msg, /unknown field "id"/);
   assert.doesNotMatch(msg, /skeleton gate failed \(server-side re-verification\)/);
 });
@@ -66,7 +66,7 @@ test('a contract hard-fail leads with a clean human sentence, no raw JSON', () =
 test('a non-sizing structural fail (e.g. a cycle) leads with the failing complaint, never scope advice, never raw', () => {
   const structuralFail = { ok: false, raw: { ok: false, checks: { acyclic: { pass: false, complaints: ['depends_on cycle detected: a → b → a'] } }, hard_fail: true } };
   const msg = describeSkeletonGateFailure(structuralFail, { scope_hint: 'single' });
-  assert.match(msg, /^Mercury's draft failed a required structural check: depends_on cycle/, 'the failing complaint leads');
+  assert.match(msg, /^Radsvinn's draft failed a required structural check: depends_on cycle/, 'the failing complaint leads');
   assert.doesNotMatch(msg, /Re-run \/plan/, 'no false sizing×scope advice on a structural fail');
   assert.doesNotMatch(msg, /skeleton gate failed \(server-side re-verification\)/, 'the raw is logs-only');
 });
@@ -91,7 +91,7 @@ test('a malformed failing check with a LEADING advisory WARN still leads with th
     },
   };
   const msg = describeSkeletonGateFailure(mixed, { scope_hint: 'auto' });
-  assert.match(msg, /^Mercury's draft failed a required structural check: depends_on cycle/, 'the hard blocker leads');
+  assert.match(msg, /^Radsvinn's draft failed a required structural check: depends_on cycle/, 'the hard blocker leads');
   assert.doesNotMatch(msg, /WARN:/, 'the advisory WARN is not surfaced as the blocker');
   assert.doesNotMatch(msg, /advisory/, 'no advisory copy leaks into the blocker sentence');
 });
@@ -99,6 +99,6 @@ test('a malformed failing check with a LEADING advisory WARN still leads with th
 test('malformed gate objects degrade to a clean human fallback sentence, never throw, never a raw blob', () => {
   for (const gate of [{ ok: false }, { ok: false, raw: null }, { ok: false, raw: 'garbage' }]) {
     const msg = describeSkeletonGateFailure(gate, { scope_hint: 'single' });
-    assert.equal(msg, "Mercury's draft failed server-side re-verification. Retry re-plans from scratch.");
+    assert.equal(msg, "Radsvinn's draft failed server-side re-verification. Retry re-plans from scratch.");
   }
 });

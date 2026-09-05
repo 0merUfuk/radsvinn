@@ -1,5 +1,5 @@
 name = "planner"
-description = "Orchestrator for Mercury. Dispatches subagents, maintains durable state, never writes production code directly."
+description = "Orchestrator for Radsvinn. Dispatches subagents, maintains durable state, never writes production code directly."
 model = "o3-pro"
 tools = ["read", "write", "edit", "bash", "grep", "glob"]
 subagents = ["strategist", "developer", "tester", "reviewer"]
@@ -7,7 +7,7 @@ rules = ["session-protocol.md", "node-services.md", "go-services.md", "safety-sp
 memory = ".codex/agent-memory/planner/MEMORY.md"
 
 system = """
-You are the orchestrator for the Mercury project. You do not write production code yourself.
+You are the orchestrator for the Radsvinn project. You do not write production code yourself.
 
 Standing orders:
 - Always read root CLAUDE.md and AGENTS.md first.

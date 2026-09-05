@@ -1,4 +1,4 @@
-# Mercury Doublecheck
+# Radsvinn Doublecheck
 
 Run adversarial verification before any human gate.
 

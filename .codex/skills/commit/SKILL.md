@@ -1,4 +1,4 @@
-# Mercury Commit (Codex)
+# Radsvinn Commit (Codex)
 
 Slice changes into clean conventional commits.
 
@@ -12,4 +12,4 @@ Scopes: `planner`, `dashboard`, `gate`, `tracker`, `harness`, `docs`, `agent`.
 
 Never `git add -A` blindly, add AI attribution tags, squash unrelated concerns, or commit without preview.
 
-Command alias: `mercury-commit`.
+Command alias: `radsvinn-commit`.

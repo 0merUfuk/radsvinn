@@ -853,7 +853,7 @@ test('iteration isolation: plan A double-degrades mid-upload, plan B (watched af
       return fakeResponse(200, { ok: true, ts: body.channel === 'CA' ? 'TS-A' : 'TS-B', channel: body.channel });
     }
     if (call.url.endsWith('files.getUploadURLExternal')) {
-      if (String(call.body).includes('mercury-plan-aaaaaaaa')) throw new Error('A upload network down');
+      if (String(call.body).includes('radsvinn-plan-aaaaaaaa')) throw new Error('A upload network down');
       return fakeResponse(200, { ok: true, upload_url: URL_B, file_id: 'F-B' });
     }
     if (call.url === URL_B) return fakeResponse(200, {});

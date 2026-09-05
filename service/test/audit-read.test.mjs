@@ -19,7 +19,7 @@ function writeAuditFile(resultsDir, dateStamp, records) {
 }
 
 test("GET /audit: plan_id filter returns only that plan's records; a malformed plan_id 400s", async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const a = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -41,7 +41,7 @@ test("GET /audit: plan_id filter returns only that plan's records; a malformed p
 });
 
 test('GET /audit: records come back newest-first', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -143,7 +143,7 @@ test('GET /audit: limit bounds — 0/501/junk 400, 1/100/500 accepted', async (t
 });
 
 test('GET /audit requires the bearer like every other non-healthz route', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SERVICE_TOKEN: 'sekret-audit' });
+  const ctx = await startTestServer({ RADSVINN_SERVICE_TOKEN: 'sekret-audit' });
   t.after(() => ctx.close());
   const noAuth = await getJson(ctx.baseUrl, '/audit');
   assert.equal(noAuth.status, 401);

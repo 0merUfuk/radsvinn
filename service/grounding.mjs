@@ -21,10 +21,11 @@
 // stale code") instead of silently planning on stale refs — the never-
 // silent rule is the whole point of fetch-before-plan.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { MERCURY_ROOT } from './state.mjs';
+import { RADSVINN_ROOT } from './state.mjs';
 import { scrub, gitAuthEnv } from '../deploy/lib.mjs';
 
 // Generous per-repo ceiling: a fetch is one negotiation round-trip on a
@@ -38,13 +39,13 @@ const FETCH_TIMEOUT_MS = 60 * 1000;
 const DETAIL_MAX_CHARS = 500;
 
 /**
- * The directory under which grounding repos live. `MERCURY_REPOS_ROOT`
- * (absolute, or resolved against the mercury repo root) overrides; the
+ * The directory under which grounding repos live. `RADSVINN_REPOS_ROOT`
+ * (absolute, or resolved against the radsvinn repo root) overrides; the
  * default is the laptop-era sibling `../grounding` checkout.
  */
 export function reposRoot() {
-  const raw = process.env.MERCURY_REPOS_ROOT || '../grounding';
-  return path.isAbsolute(raw) ? raw : path.resolve(MERCURY_ROOT, raw);
+  const raw = readEnv('RADSVINN_REPOS_ROOT') || '../grounding';
+  return path.isAbsolute(raw) ? raw : path.resolve(RADSVINN_ROOT, raw);
 }
 
 // One git step — argv array (never a shell; the dir name is
@@ -100,7 +101,7 @@ function runGitStep(args, env) {
 // Reads/Greps stays frozen at whatever the first clone checked out, growing
 // ever staler while the anchor gate validates fresh origin/main objects.
 // The reset snaps the checkout to the just-fetched tip. Safe because this
-// path only runs under MERCURY_FETCH_BEFORE_PLAN=1 (the container posture),
+// path only runs under RADSVINN_FETCH_BEFORE_PLAN=1 (the container posture),
 // where every repo under reposRoot() is a disposable read-only grounding
 // clone (/data/repos) that no human ever commits to. Do NOT enable the flag
 // against a root of human working checkouts — reset --hard destroys
@@ -118,7 +119,7 @@ async function fetchOne(dir) {
 
 /**
  * Refreshes grounding repos before planning. Gated on
- * `MERCURY_FETCH_BEFORE_PLAN=1` — when
+ * `RADSVINN_FETCH_BEFORE_PLAN=1` — when
  * the flag is off this returns `undefined` and the caller stores nothing
  * (legacy plans keep their exact shape). When on: every immediate
  * subdirectory of `reposRoot()` that carries a `.git` gets a
@@ -130,7 +131,7 @@ async function fetchOne(dir) {
  * kill the worker.
  */
 export async function fetchGroundingRepos() {
-  if (process.env.MERCURY_FETCH_BEFORE_PLAN !== '1') return undefined;
+  if (readEnv('RADSVINN_FETCH_BEFORE_PLAN') !== '1') return undefined;
 
   const root = reposRoot();
   let repos;

@@ -1,8 +1,8 @@
 {
-  "name": "mercury-dashboard",
+  "name": "radsvinn-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Mercury dashboard BFF — GitHub-OAuth-gated browser client for the Mercury planner API, with zero npm runtime dependencies.",
+  "description": "Radsvinn dashboard BFF — GitHub-OAuth-gated browser client for the Radsvinn planner API, with zero npm runtime dependencies.",
   "type": "module",
   "engines": {
     "node": ">=22"

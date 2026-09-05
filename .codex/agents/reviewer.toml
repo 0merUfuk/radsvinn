@@ -1,5 +1,5 @@
 name = "reviewer"
-description = "Read-only quality gate for Mercury. A false 'all clear' is worse than a false alarm."
+description = "Read-only quality gate for Radsvinn. A false 'all clear' is worse than a false alarm."
 model = "gpt-5.5"
 tools = ["read", "grep", "glob", "bash"]
 allowed_edit = false

@@ -23,14 +23,14 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { loadJson, readText, writeText, parseArgs, safeKey, HARNESS_DIR, MERCURY_ROOT } from './lib.mjs';
+import { loadJson, readText, writeText, parseArgs, safeKey, HARNESS_DIR, RADSVINN_ROOT } from './lib.mjs';
 
 function resolveRun(runArg) {
   if (!runArg) { console.error('usage: node render-sheet.mjs --run results/<run> [--unblind] [--force]'); process.exit(2); }
   const cands = [
     path.isAbsolute(runArg) ? runArg : path.resolve(process.cwd(), runArg),
     path.resolve(HARNESS_DIR, runArg),
-    path.resolve(MERCURY_ROOT, runArg),
+    path.resolve(RADSVINN_ROOT, runArg),
   ];
   for (const dir of cands) {
     if (fs.existsSync(path.join(dir, 'summary.json'))) return dir;
@@ -191,7 +191,7 @@ function main() {
   const md = [];
   const csv = ['ask_id,level,stratum,item_temp_id,judge_total,judge_verdict,human_dev_ready_without_edits(y/n),human_breakdown_good(y/n|na),notes'];
 
-  md.push('# Mercury Calibration — Review Sheet', '');
+  md.push('# Radsvinn Calibration — Review Sheet', '');
   md.push(`**Run**: ${summary.run_id}  |  **Mode**: ${summary.dry_run ? 'dry-run' : 'live'}  |  **Labeling**: ${blind ? 'BLIND (judge output hidden)' : 'UNBLINDED'}  |  **Generated**: ${summary.generated_at}`);
   md.push(`**Generator**: ${summary.models.generator} (${summary.efforts.generator})  |  **Judge**: ${summary.models.judge} (${summary.efforts.judge})`, '');
   md.push('> **Labeling protocol**: (1) read the ask; (2) label the TREE from the tree view ALONE — BEFORE reading the groomed tickets below it; (3) label each ticket: would you hand it to a developer WITHOUT EDITS? Then transcribe your calls into `labels.csv` and run `score-agreement.mjs`.', '');

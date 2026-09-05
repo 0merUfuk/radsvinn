@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// mercury/tools/create-tree.mjs
+// radsvinn/tools/create-tree.mjs
 // -----------------------------------------------------------------------------
-// Mercury Phase-0 — planner-output (plan.json) -> a Jira ticket tree.
+// Radsvinn Phase-0 — planner-output (plan.json) -> a Jira ticket tree.
 //
-// Proves a Mercury plan becomes a real Jira ticket tree through the proven
+// Proves a Radsvinn plan becomes a real Jira ticket tree through the proven
 // api.atlassian.com gateway. DEFAULT = dry-run (prints exactly what --live
 // would do, ZERO network). --live actually calls the Jira REST v3 API.
 //
@@ -23,18 +23,20 @@
 //                                         plan.epic.existing_key set (see epicExistingKey)
 //
 // Env:
-//   MERCURY_JIRA_TOKEN     required for --live / --cleanup / --search / --verify (scoped SA
+//   RADSVINN_JIRA_TOKEN     required for --live / --cleanup / --search / --verify (scoped SA
 //                          token). Falls back to the trimmed contents of
-//                          ~/.config/mercury/jira-token when the env var is unset. Never
+//                          ~/.config/radsvinn/jira-token when env resolves empty/unset,
+//                          then ~/.config/mercury/jira-token only if absent. Never
 //                          logged, printed, or echoed.
-//   MERCURY_JIRA_CLOUD_ID  REQUIRED for any network op — no default; the tool
+//   RADSVINN_JIRA_CLOUD_ID  REQUIRED for any network op — no default; the tool
 //                          dies clearly if unset (your Atlassian Cloud ID).
-//   MERCURY_JIRA_PROJECT   default PROJ
-//   MERCURY_JIRA_SITE_URL  your Jira site (e.g. https://your-domain.atlassian.net);
-//                          browse links are ${MERCURY_JIRA_SITE_URL}/browse/<KEY>.
+//   RADSVINN_JIRA_PROJECT   default PROJ
+//   RADSVINN_JIRA_SITE_URL  your Jira site (e.g. https://your-domain.atlassian.net);
+//                          browse links are ${RADSVINN_JIRA_SITE_URL}/browse/<KEY>.
 // -----------------------------------------------------------------------------
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { readEnv } from '../dashboard/lib/env.mjs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, lstatSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -42,24 +44,25 @@ import { homedir } from 'node:os';
 // No baked-in cloudId: it is the per-site write target and MUST be configured.
 // Empty when unset — requireCloudId() below fails clearly before any network op
 // (dry-run / --show-adf / --help stay usable without it).
-const CLOUD_ID = process.env.MERCURY_JIRA_CLOUD_ID || '';
-const PROJECT = process.env.MERCURY_JIRA_PROJECT || 'PROJ';
-// Token resolution: env var first, else the trimmed contents of ~/.config/mercury/jira-token.
+const CLOUD_ID = readEnv('RADSVINN_JIRA_CLOUD_ID') || '';
+const PROJECT = readEnv('RADSVINN_JIRA_PROJECT') || 'PROJ';
+// Token resolution: resolved nonempty env first; canonical file wins by presence.
 // Never logged, printed, or echoed anywhere.
 function resolveToken() {
-  if (process.env.MERCURY_JIRA_TOKEN) return process.env.MERCURY_JIRA_TOKEN;
-  const tokenFile = join(homedir(), '.config', 'mercury', 'jira-token');
-  if (existsSync(tokenFile)) {
+  if (readEnv('RADSVINN_JIRA_TOKEN')) return readEnv('RADSVINN_JIRA_TOKEN');
+  for (const brand of ['radsvinn', 'mercury']) { // Legacy path is read-only compatibility fallback.
+    const tokenFile = join(homedir(), '.config', brand, 'jira-token');
     try {
+      if (!lstatSync(tokenFile, { throwIfNoEntry: false })) continue;
       // Docs promise chmod 600 — warn (to stderr, without the value) if looser.
       if (statSync(tokenFile).mode & 0o077) {
-        console.error('WARN: ~/.config/mercury/jira-token is readable by group/other — run: chmod 600 ~/.config/mercury/jira-token');
+        console.error(`WARN: ${tokenFile} is readable by group/other — run: chmod 600 ${tokenFile}`);
       }
       return readFileSync(tokenFile, 'utf8').trim();
     } catch (err) {
       // A-Info2: never the content, only the path + error — the file may
       // hold the live token, so the failure message must stay content-free.
-      console.error(`WARN: could not read ${tokenFile}: ${err.message}`);
+      console.error(`WARN: could not read ${tokenFile}: ${err.code}`);
       return '';
     }
   }
@@ -81,10 +84,10 @@ function conciseTitle(s) {
   }
   return t;
 }
-// Browse links come from MERCURY_JIRA_SITE_URL (the operator's Jira site); no
+// Browse links come from RADSVINN_JIRA_SITE_URL (the operator's Jira site); no
 // hardcoded site. Example: https://your-domain.atlassian.net → browse base
 // https://your-domain.atlassian.net/browse.
-const JIRA_SITE_URL = (process.env.MERCURY_JIRA_SITE_URL || 'https://your-domain.atlassian.net').replace(/\/+$/, '');
+const JIRA_SITE_URL = (readEnv('RADSVINN_JIRA_SITE_URL') || 'https://your-domain.atlassian.net').replace(/\/+$/, '');
 const BROWSE_BASE = `${JIRA_SITE_URL}/browse`;
 // Terminal-transition preference for cleanup: true cancel states first, then
 // closed states, then done as a last resort. Transition/status names arrive in
@@ -107,11 +110,11 @@ function die(msg) {
   process.exit(1);
 }
 // Every network mode targets the gateway, which is keyed by cloudId. No default
-// is baked in, so a network op with an unset MERCURY_JIRA_CLOUD_ID must fail
+// is baked in, so a network op with an unset RADSVINN_JIRA_CLOUD_ID must fail
 // clearly rather than build a malformed gateway URL and 404.
 function requireCloudId(mode) {
   if (!CLOUD_ID) {
-    die(`MERCURY_JIRA_CLOUD_ID is unset — required for ${mode}. Set your Atlassian Cloud ID (no default is baked in); find it at https://<your-domain>.atlassian.net/_edgeProxy/tenantInfo`);
+    die(`RADSVINN_JIRA_CLOUD_ID is unset — required for ${mode}. Set your Atlassian Cloud ID (no default is baked in); find it at https://<your-domain>.atlassian.net/_edgeProxy/tenantInfo`);
   }
 }
 function readJSON(path) {
@@ -183,7 +186,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  console.log(`Mercury Phase-0 — plan.json -> a Jira tree
+  console.log(`Radsvinn Phase-0 — plan.json -> a Jira tree
 
 Usage:
   node tools/create-tree.mjs --plan <path> [--scope smoke|full] [--live]
@@ -193,7 +196,7 @@ Usage:
   node tools/create-tree.mjs --verify <record.json>
 
 Flags:
-  --plan <path>        Mercury plan.json (item summaries come from sibling skeleton.json).
+  --plan <path>        Radsvinn plan.json (item summaries come from sibling skeleton.json).
                        When plan.epic.existing_key is set, the tree ATTACHES under that
                        existing board epic: --live verifies the key (must exist, must be
                        an Epic — dies otherwise) and creates no epic of its own.
@@ -217,9 +220,10 @@ Flags:
   --show-adf [tempId]  print the full create request body (incl. ADF description) for
                        one issue and exit (dry, no network). Default target: comment Story.
 
-Env: MERCURY_JIRA_TOKEN (required for --live/--cleanup/--search/--verify; falls back to
-     ~/.config/mercury/jira-token when unset), MERCURY_JIRA_CLOUD_ID (required, no default),
-     MERCURY_JIRA_PROJECT (default PROJ), MERCURY_JIRA_SITE_URL (browse links)`);
+Env: RADSVINN_JIRA_TOKEN (required for --live/--cleanup/--search/--verify; falls back to
+     ~/.config/radsvinn/jira-token when empty/unset; only if absent,
+     ~/.config/mercury/jira-token), RADSVINN_JIRA_CLOUD_ID (required, no default),
+     RADSVINN_JIRA_PROJECT (default PROJ), RADSVINN_JIRA_SITE_URL (browse links)`);
 }
 
 // ------------------------------- ADF builders --------------------------------
@@ -386,7 +390,7 @@ function renderScoreCommentADF(score) {
   const content = [];
   const total = score.total != null ? score.total : '—';
   const verdict = score.verdict || '—';
-  content.push(heading(3, `🤖 Mercury ticket-score: ${total}/100 — ${verdict}`));
+  content.push(heading(3, `🤖 Radsvinn ticket-score: ${total}/100 — ${verdict}`));
 
   const byField = score.by_field || {};
   const just = score.justifications_tr || {};
@@ -398,13 +402,13 @@ function renderScoreCommentADF(score) {
     rows.push(inline);
   }
   if (rows.length) content.push(bulletList(rows));
-  content.push(paragraph(txt('Planned & scored by Mercury.', [EM])));
+  content.push(paragraph(txt('Planned & scored by Radsvinn.', [EM])));
   return doc(content);
 }
 
 // Synthetic comment when no score file sits next to the plan.
 function synthCommentADF(tempId) {
-  return doc([paragraph(txt(`Planned by Mercury (${tempId})`))]);
+  return doc([paragraph(txt(`Planned by Radsvinn (${tempId})`))]);
 }
 
 // ------------------------------ gateway --------------------------------------
@@ -519,7 +523,7 @@ function selectScope(plan, scope) {
 // gateway endpoint. Deliberately the GENERAL Jira issue-key shape
 // (PROJECT-123: uppercase alnum project key starting with a letter, dash,
 // digits) rather than a project-pinned `^KEY-[0-9]+$`: this tool honors
-// MERCURY_JIRA_PROJECT, so pinning one project here would break any other
+// RADSVINN_JIRA_PROJECT, so pinning one project here would break any other
 // deployment while adding zero safety — the charset is what keeps the
 // path (and the record/Slack renders downstream) inert.
 const JIRA_KEY_RE = /^[A-Z][A-Z0-9]*-[0-9]+$/;
@@ -604,12 +608,12 @@ function printDryRun(plan, sel, skel, opts, planPath) {
   const attachKey = epicExistingKey(plan);
   const n = (sel.epic && !attachKey ? 1 : 0) + sel.l0.length + sel.subtasks.length;
 
-  console.log('Mercury Phase-0 · planner-output → Jira tree');
+  console.log('Radsvinn Phase-0 · planner-output → Jira tree');
   console.log(`mode: DRY-RUN (no network)   scope: ${opts.scope}`);
   console.log(`plan:     ${planPath}`);
   console.log(`skeleton: ${skel.path} ${skel.found ? '(summaries)' : '(MISSING — summaries fall back to why)'}`);
   console.log(`gateway:  ${GATEWAY}`);
-  console.log(`project:  ${PROJECT}   cloudId: ${CLOUD_ID || '(unset — required for --live; set MERCURY_JIRA_CLOUD_ID)'}`);
+  console.log(`project:  ${PROJECT}   cloudId: ${CLOUD_ID || '(unset — required for --live; set RADSVINN_JIRA_CLOUD_ID)'}`);
   console.log('');
 
   console.log(`ISSUES TO CREATE (${n})`);
@@ -650,7 +654,7 @@ function printDryRun(plan, sel, skel, opts, planPath) {
       const nf = Object.keys(sc.by_field || {}).length;
       console.log(`  target: ${st.temp_id} (Story)   source: ticket-score.${st.temp_id}.json → ${sc.total}/100 ${sc.verdict} (${nf} fields)`);
     } else {
-      console.log(`  target: ${st.temp_id} (Story)   source: synthetic ("🤖 Mercury planned this ticket …")`);
+      console.log(`  target: ${st.temp_id} (Story)   source: synthetic ("🤖 Radsvinn planned this ticket …")`);
     }
   }
   console.log('');
@@ -683,10 +687,10 @@ function printCleanupDry(recordPath) {
   }
   // attached_epic sits OUTSIDE created[] by design (see buildRecord in
   // runLive): the sweep above derives from created[] only, so an epic
-  // Mercury did not create is structurally excluded — surfaced here so the
+  // Radsvinn did not create is structurally excluded — surfaced here so the
   // dry-run listing says so out loud.
   if (rec.attached_epic && rec.attached_epic.key) {
-    console.log(`  (attached epic ${rec.attached_epic.key} is NOT swept — Mercury did not create it)`);
+    console.log(`  (attached epic ${rec.attached_epic.key} is NOT swept — Radsvinn did not create it)`);
   }
 }
 
@@ -727,9 +731,9 @@ function showAdf(plan, sel, skel, target) {
 function cancelOrder(created) {
   // children before parents: Sub-task (0) → L0 (1) → Epic (2)
   // NOTE (attach mode, 2026-07-10): this receives rec.created ONLY. An
-  // attached epic (rec.attached_epic — a pre-existing board epic Mercury
+  // attached epic (rec.attached_epic — a pre-existing board epic Radsvinn
   // merely parented new items under) is deliberately NOT in created[], so
-  // no cleanup/cancel sweep can ever transition an epic Mercury did not
+  // no cleanup/cancel sweep can ever transition an epic Radsvinn did not
   // create — the existing cancel-order logic is safe unchanged. Do not
   // "fix" a sweep to include it.
   const rank = (t) => (t === 'Sub-task' ? 0 : t === 'Epic' ? 2 : 1);
@@ -778,11 +782,11 @@ async function runLive(plan, sel, skel, opts, planPath) {
     // acknowledged write; safe to overwrite and proceed.
   }
 
-  if (!TOKEN) die('MERCURY_JIRA_TOKEN is unset — required for --live');
+  if (!TOKEN) die('RADSVINN_JIRA_TOKEN is unset — required for --live');
   requireCloudId('--live');
   const planDir = dirname(planPath);
 
-  console.log('Mercury Phase-0 · LIVE create');
+  console.log('Radsvinn Phase-0 · LIVE create');
   console.log(`scope: ${opts.scope}   project: ${PROJECT}   cloudId: ${CLOUD_ID}`);
 
   // 0. attach-to-existing-epic verification (see epicExistingKey) — FIRST,
@@ -833,7 +837,7 @@ async function runLive(plan, sel, skel, opts, planPath) {
   // and the retry guard fails CLOSED on unparseable records, which is the
   // safe direction.
   // attached_epic sits OUTSIDE created[] on purpose: cleanup/cancel sweep
-  // cancelOrder(rec.created) and must NEVER transition an epic Mercury did
+  // cancelOrder(rec.created) and must NEVER transition an epic Radsvinn did
   // not create — excluding it here keeps the existing cancel logic safe
   // unchanged, while --verify still reads the key back (labeled [attached]).
   const buildRecord = () => ({
@@ -959,15 +963,15 @@ async function runCleanup(recordPath, live) {
     console.log('\n(dry-run — pass --live to actually transition. No network calls were made.)');
     return;
   }
-  if (!TOKEN) die('MERCURY_JIRA_TOKEN is unset — required for --cleanup --live');
+  if (!TOKEN) die('RADSVINN_JIRA_TOKEN is unset — required for --cleanup --live');
   requireCloudId('--cleanup --live');
 
-  console.log(`Mercury Phase-0 · cleanup (transition-to-cancelled, never DELETE)`);
+  console.log(`Radsvinn Phase-0 · cleanup (transition-to-cancelled, never DELETE)`);
   console.log(`record: ${recordPath}   issues: ${order.length}`);
   // See cancelOrder's note: an attached epic is structurally outside the
   // sweep (created[] only) — say so out loud in the live output too.
   if (rec.attached_epic && rec.attached_epic.key) {
-    console.log(`  (attached epic ${rec.attached_epic.key} excluded — Mercury did not create it; never transitioned)`);
+    console.log(`  (attached epic ${rec.attached_epic.key} excluded — Radsvinn did not create it; never transitioned)`);
   }
   // HARD failures only: a transitions-read error (⚠ below) or a
   // transition-POST failure (✗ below) — network down, revoked token,
@@ -1017,7 +1021,7 @@ async function runCleanup(recordPath, live) {
 // ------------------------------ search / verify -------------------------------
 // Standalone duplicate search over the project. No --plan needed.
 async function runSearch(text) {
-  if (!TOKEN) die('MERCURY_JIRA_TOKEN is unset — required for --search');
+  if (!TOKEN) die('RADSVINN_JIRA_TOKEN is unset — required for --search');
   requireCloudId('--search');
   // The search term can originate in untrusted ask content (jira-planner.md
   // §Gate Integrity), so it is ALWAYS treated as a plain term: control chars
@@ -1036,7 +1040,7 @@ async function runSearch(text) {
   if (!term) die('--search requires a non-empty search term');
   const jql = `project = ${PROJECT} AND (summary ~ "${term}" OR text ~ "${term}") ORDER BY created DESC`;
 
-  console.log('Mercury Phase-0 · duplicate search');
+  console.log('Radsvinn Phase-0 · duplicate search');
   console.log(`project: ${PROJECT}   jql: ${jql}`);
   console.log('');
 
@@ -1057,17 +1061,17 @@ async function runSearch(text) {
 
 // Standalone post-create verification. Re-reads every issue in a --live record. No --plan needed.
 async function runVerify(recordPath) {
-  if (!TOKEN) die('MERCURY_JIRA_TOKEN is unset — required for --verify');
+  if (!TOKEN) die('RADSVINN_JIRA_TOKEN is unset — required for --verify');
   requireCloudId('--verify');
   if (!existsSync(recordPath)) die(`verify record not found: ${recordPath}`);
   const rec = readJSON(recordPath);
   const created = rec.created || [];
   // The attached epic (attach mode) is read back too — a readable parent is
-  // part of the post-create contract — but labeled [attached]: Mercury did
+  // part of the post-create contract — but labeled [attached]: Radsvinn did
   // not create it, and cleanup deliberately never touches it.
   const attached = rec.attached_epic && rec.attached_epic.key ? rec.attached_epic : null;
 
-  console.log(`Mercury Phase-0 · verify — record: ${recordPath}   issues: ${created.length}${attached ? ' (+1 attached epic)' : ''}`);
+  console.log(`Radsvinn Phase-0 · verify — record: ${recordPath}   issues: ${created.length}${attached ? ' (+1 attached epic)' : ''}`);
   if (created.length === 0 && !attached) {
     console.log('  (record has no created issues — nothing to verify)');
     return;

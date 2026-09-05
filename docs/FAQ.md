@@ -1,4 +1,4 @@
-# Mercury — Frequently Asked Questions
+# Radsvinn — Frequently Asked Questions
 
 *The doc between the [README](../README.md) (30 seconds) and
 [docs/ARCHITECTURE.md](ARCHITECTURE.md) (the full design-of-record). Read this if you read the
@@ -6,9 +6,9 @@ README, got intrigued, and want the whole thing explained in one screen.*
 
 ---
 
-## What does Mercury do?
+## What does Radsvinn do?
 
-Mercury turns a plain-language work request ("add prompt-text search to the history view")
+Radsvinn turns a plain-language work request ("add prompt-text search to the history view")
 into a validated tree of Jira tickets — an epic, its stories, their sub-tasks — each with a
 why, a definition of done, acceptance criteria, and verified code anchors. It grounds itself
 in your actual codebase, knows which changes are *coupled* (a database column three services
@@ -20,7 +20,7 @@ no-LLM tool write to your tracker. That separation is the whole point.
 
 ---
 
-## How does a plan flow through Mercury?
+## How does a plan flow through Radsvinn?
 
 On a first-pass success, one plan has two model phases and two human gates. A gate failure can
 send either model phase through bounded regeneration, so a run may make more than two model
@@ -51,8 +51,8 @@ a rejected plan. Background workers persist their own progress and terminal stat
 Because the shape and the content have different quality/cost profiles. **Decompose** produces
 the shape — cheap to be wrong (the human shape gate rejects a bad shape for ~the phase-1 cost
 alone). **Groom** writes the 5 fields, the verified code anchors, and the coupling-zone routing —
-expensive to be wrong (it is what the create gate approves). Mercury lets each seat pick its
-own Claude model/effort (`MERCURY_AGENT_MODEL_DECOMPOSE` / `_GROOM`) so you can run a
+expensive to be wrong (it is what the create gate approves). Radsvinn lets each seat pick its
+own Claude model/effort (`RADSVINN_AGENT_MODEL_DECOMPOSE` / `_GROOM`) so you can run a
 cheaper/faster model on decompose and the strongest one on groom.
 
 ---
@@ -82,28 +82,28 @@ are reliably present). A missing anchor is a hard block.
 
 ---
 
-## How does Mercury handle cost?
+## How does Radsvinn handle cost?
 
 Three breakers bound model work:
 
-- **Per-plan budget** (`MERCURY_PLAN_BUDGET_USD`, default $10) — checked before every Groom
+- **Per-plan budget** (`RADSVINN_PLAN_BUDGET_USD`, default $10) — checked before every Groom
   call and, once spend exists, before Phase-1 regeneration. A blocked plan is retryable and
   the blocked attempt is not charged.
-- **Daily hard cap** (`MERCURY_DAILY_HARD_USD`, default $100) — blocks all new LLM work when
+- **Daily hard cap** (`RADSVINN_DAILY_HARD_USD`, default $100) — blocks all new LLM work when
   hit; checked before every model call and resets at UTC midnight.
-- **Daily soft cap** (`MERCURY_DAILY_SOFT_USD`, default $50) — checked before every model
+- **Daily soft cap** (`RADSVINN_DAILY_SOFT_USD`, default $50) — checked before every model
   call, warns once per boot, and continues.
 
 Create is a deterministic control-plane operation with no model call, so it has no
 model-spend check.
 
 Cost is tracked in **integer nanodollars** (1e9 per USD) so a sub-cent charge cannot disappear
-in rounding. When Mercury runs through OpenRouter, a local proxy reconciles every generation
+in rounding. When Radsvinn runs through OpenRouter, a local proxy reconciles every generation
 receipt against the provider's API — Claude Code's own cost estimate is deliberately not used.
 
 ---
 
-## Can I run Mercury without Slack?
+## Can I run Radsvinn without Slack?
 
 Yes. The planner is an HTTP API (`service/server.mjs`). The Slack bridge
 (`service/slack.mjs`) is one client; the dashboard BFF (`dashboard/`) is another. You can drive
@@ -130,7 +130,7 @@ The dashboard is optional and runs as a separate process. See
 
 ---
 
-## What happens if Mercury crashes mid-plan?
+## What happens if Radsvinn crashes mid-plan?
 
 On boot, the state store replays every persisted plan. Any plan caught in a transient status
 (`breaking_down`, `grooming`, `creating`, `cancelling`) is honestly reloaded as `failed` with
@@ -150,20 +150,20 @@ into a state an issue is already in, so already-terminal issues are benignly ski
 
 ---
 
-## What model does Mercury use?
+## What model does Radsvinn use?
 
 The runtime default is the floating Claude CLI alias `opus` at `effort: xhigh`; v0.1.0 does
 not pin that alias to an exact model ID. The planner is a sandboxed `claude -p` child with
 read-only tools (`Read`, `Grep`, `Glob`), default permission mode, no shell — untrusted
 request text cannot escalate into command execution. A non-Claude model enters only when
-`MERCURY_LLM_PROVIDER=openrouter` explicitly selects the OpenRouter metering proxy, which
+`RADSVINN_LLM_PROVIDER=openrouter` explicitly selects the OpenRouter metering proxy, which
 reconciles every receipt; setting its API key alone does not switch providers.
 
 ---
 
-## Is Mercury multi-tenant?
+## Is Radsvinn multi-tenant?
 
-No. Mercury is single-tenant, self-hosted, bring-your-own-model-key. Multi-tenancy is an
+No. Radsvinn is single-tenant, self-hosted, bring-your-own-model-key. Multi-tenancy is an
 explicit opt-in later milestone (R7) gated on demand — the roadmap warns against building
 multi-tenant SaaS scaffolding before a design partner has pulled for it. The deployment shape
 is design-partner-first on a self-hostable open-core base.
@@ -187,10 +187,10 @@ See the [README quickstart](../README.md#quickstart) for the full end-to-end.
 
 ---
 
-## What's next for Mercury?
+## What's next for Radsvinn?
 
 The [roadmap](ROADMAP.md) has the full picture. The short version: the generalization spine
 (R1 config spine → R2 de-freeze vocabulary → R3 neutralize prompts → R4 coupling-map generator)
-makes Mercury organization-independent. The reliability track adds admission control, a
+makes Radsvinn organization-independent. The reliability track adds admission control, a
 skeleton-⊆-plan coverage gate, and real-engine smoke tests. The executor (approved tickets →
 draft PRs) is a future iteration, hard-gated behind its own preconditions.

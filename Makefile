@@ -1,4 +1,4 @@
-.PHONY: demo test gate public-scan check status help
+.PHONY: demo test gate public-scan identity-scan check status help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -11,7 +11,7 @@ test: ## Run all tests (Go + service + dashboard)
 	@echo "Running Go tests..."
 	go test -count=1 ./...
 	@echo "Running service tests (fake engine)..."
-	MERCURY_ENGINE=fake MERCURY_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs
+	RADSVINN_ENGINE=fake RADSVINN_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs
 	@echo "Running dashboard tests..."
 	cd dashboard && node --test test/*.test.mjs
 
@@ -87,12 +87,16 @@ public-scan: ## Scan releasable files for forbidden terms and local paths
 	fi
 	@echo "Public leak scan passed."
 
-check: ## Full release check: demo + tests + gate + public leak scan
+identity-scan: ## Audit remaining legacy identity references and filenames
+	node tools/audit-identity.mjs
+
+check: ## Full release check: demo + tests + gate + public leak and identity scans
 	@echo "Running full release check..."
 	$(MAKE) demo
 	$(MAKE) test
 	$(MAKE) gate
 	$(MAKE) public-scan
+	$(MAKE) identity-scan
 
 status: ## Collation health check
 	@echo "Git status:"

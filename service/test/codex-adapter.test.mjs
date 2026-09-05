@@ -8,12 +8,12 @@ import { createCodexRuntime, resolveBinaryPath } from '../runtimes/codex.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
-const FIXTURE_PATH = path.join(ROOT, 'tasks', 'design', 'codex-event-fixtures', 'trivial-events.jsonl');
+const FIXTURE_PATH = path.join(ROOT, 'fixtures', 'identity', 'codex-events.jsonl');
 const EVENTS = fs.readFileSync(FIXTURE_PATH, 'utf8');
-const THREAD_ID = '019feb76-ba46-7400-b777-82373a4310f5';
+const THREAD_ID = 'fixture-thread';
 
 const BASE_REQ = {
-  repoRoot: '/mercury-root',
+  repoRoot: '/radsvinn-root',
   groundingRoot: ROOT,
   childEnv: {
     PATH: '/fake-bin',
@@ -22,7 +22,7 @@ const BASE_REQ = {
     OPENAI_API_KEY: 'openai-canary',
   },
   timeoutMs: 1_000,
-  // This is Mercury's built-in Claude seat default. Codex must treat it as
+  // This is Radsvinn's built-in Claude seat default. Codex must treat it as
   // "no Codex override", omit -m, and report codex-default.
   seat: { model: 'opus' },
   userMessage: 'Produce strict JSON.',
@@ -65,7 +65,7 @@ test('Codex event parsing extracts the thread and agent message, filters malform
     model: 'codex-default',
     costTelemetryStatus: 'unavailable',
   });
-  assert.equal(defaultSeatCall.args.includes('-m'), false, 'Mercury built-in opus default must not be sent to Codex');
+  assert.equal(defaultSeatCall.args.includes('-m'), false, 'Radsvinn built-in opus default must not be sent to Codex');
 
   const fatal = `${EVENTS}\n${JSON.stringify({
     type: 'item.completed',
@@ -117,7 +117,7 @@ test('fresh argv uses the read-only sandbox, repo root, existing grounding add-d
   assert.equal(binaryPath, '/fake-bin/codex');
   assert.equal(result.model, 'gpt-5.6-codex');
 
-  const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-no-grounding-'));
+  const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-no-grounding-'));
   t.after(() => fs.rmSync(emptyRoot, { recursive: true, force: true }));
   await runtime.runPhase({
     ...explicitModelReq,
@@ -188,13 +188,13 @@ test('output-last-message is primary and Codex cost telemetry remains explicitly
 
 test('registry fails closed when Codex is unavailable and relative PATH entries resolve absolutely', async (t) => {
   const { resolveRuntime } = await import('../runtimes/registry.mjs');
-  const missingPath = path.join(os.tmpdir(), 'mercury-path-with-no-codex');
+  const missingPath = path.join(os.tmpdir(), 'radsvinn-path-with-no-codex');
   assert.throws(
-    () => resolveRuntime({ MERCURY_AGENT_RUNTIME: 'codex', PATH: missingPath }),
+    () => resolveRuntime({ RADSVINN_AGENT_RUNTIME: 'codex', PATH: missingPath }),
     /runtime binary not found on PATH.*codex|codex.*runtime binary not found on PATH/i,
   );
 
-  const executableDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-relative-path-'));
+  const executableDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-relative-path-'));
   t.after(() => fs.rmSync(executableDir, { recursive: true, force: true }));
   const executablePath = path.join(executableDir, 'codex');
   fs.writeFileSync(executablePath, '#!/bin/sh\nexit 0\n');

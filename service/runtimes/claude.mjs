@@ -1,3 +1,5 @@
+import { sandboxedEnv, redactSecrets } from '../../dashboard/lib/child-env.mjs';
+import { readEnv } from '../../dashboard/lib/env.mjs';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -41,9 +43,9 @@ export function buildClaudeArgs(req, env = process.env) {
     modelOverride,
     groundingRoot,
   } = req;
-  const permissionMode = req.permissionMode || env.MERCURY_AGENT_PERMISSION_MODE || 'default';
+  const permissionMode = req.permissionMode || readEnv('RADSVINN_AGENT_PERMISSION_MODE', env) || 'default';
   const configuredTools = req.allowedTools
-    ?? env.MERCURY_AGENT_ALLOWED_TOOLS
+    ?? readEnv('RADSVINN_AGENT_ALLOWED_TOOLS', env)
     ?? 'Read,Grep,Glob';
   const model = modelOverride || seat.model || 'opus';
   const effort = seat.effort || 'xhigh';
@@ -97,16 +99,17 @@ export function runClaudeSpawn({
     return Promise.reject(new Error('failed to spawn claude: timeoutMs must be a positive integer'));
   }
 
+  const safe = (text) => redactSecrets(redactSecrets(text, childEnv));
   return new Promise((resolve, reject) => {
     let child;
     try {
       child = spawnImpl(binaryPath, args, {
         cwd: repoRoot,
-        env: childEnv,
+        env: sandboxedEnv(childEnv),
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (err) {
-      reject(new Error(`failed to spawn claude: ${err.message}`));
+      reject(new Error(`failed to spawn claude: ${safe(err.message)}`));
       return;
     }
 
@@ -118,7 +121,7 @@ export function runClaudeSpawn({
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
-      reject(new Error(`claude call timed out after ${timeoutMs}ms and was SIGKILLed. stderr tail: ${stderr.slice(-2000)}`));
+      reject(new Error(`claude call timed out after ${timeoutMs}ms and was SIGKILLed. stderr tail: ${safe(stderr).slice(-2000)}`));
     }, timeoutMs);
 
     child.stdout.on('data', (data) => { stdout += data; });
@@ -128,7 +131,7 @@ export function runClaudeSpawn({
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(new Error(`failed to spawn claude: ${err.message}`));
+      reject(new Error(`failed to spawn claude: ${safe(err.message)}`));
     });
 
     child.on('close', (code) => {
@@ -136,7 +139,7 @@ export function runClaudeSpawn({
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`claude exited ${code}. stderr tail: ${stderr.slice(-2000)}`));
+        reject(new Error(`claude exited ${code}. stderr tail: ${safe(stderr).slice(-2000)}`));
         return;
       }
 
@@ -144,11 +147,11 @@ export function runClaudeSpawn({
       try {
         parsed = JSON.parse(stdout);
       } catch (err) {
-        reject(new Error(`claude returned non-JSON stdout despite --output-format json: ${err.message}. stdout tail: ${stdout.slice(-2000)}`));
+        reject(new Error(`claude returned non-JSON stdout despite --output-format json. stdout tail: ${safe(stdout).slice(-2000)}`));
         return;
       }
       if (parsed.is_error) {
-        reject(new Error(`claude reported is_error=true. result: ${JSON.stringify(parsed.result).slice(0, 2000)}. stderr tail: ${stderr.slice(-2000)}`));
+        reject(new Error(`claude reported is_error=true. result: ${safe(JSON.stringify(parsed.result)).slice(0, 2000)}. stderr tail: ${safe(stderr).slice(-2000)}`));
         return;
       }
       resolve(parsed);
@@ -172,7 +175,7 @@ export function createClaudeRuntime(env = process.env, { spawnImpl = spawn } = {
 
     async runPhase(req) {
       if (!binaryPath) {
-        throw new Error('MERCURY_AGENT_RUNTIME=claude: runtime binary not found on PATH (claude)');
+        throw new Error('RADSVINN_AGENT_RUNTIME=claude: runtime binary not found on PATH (claude)');
       }
       const args = buildClaudeArgs(req, env);
       const runSpawn = (childEnv = req.childEnv) => runClaudeSpawn({

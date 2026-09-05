@@ -20,7 +20,7 @@ import { createServer } from '../server.mjs';
 import { createEngine, phase1Message } from '../engine.mjs';
 
 test('scope_hint: validated on POST /plan (400 on junk/non-string), defaulted to auto, persisted and echoed in the view', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const junk = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', scope_hint: 'gigantic' });
@@ -51,7 +51,7 @@ test('scope_hint wire: the service passes scopeHint (and outputLanguage) into en
   // fake engine and record phase1's args, exactly as the real engine would
   // receive them. This is the contract the engine.phase1 path relies on:
   // signature gained `scopeHint`.
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-scope-wire-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-scope-wire-'));
   const fake = createEngine('fake');
   const phase1Args = [];
   const engine = {
@@ -101,7 +101,7 @@ test('phase1Message: `# SCOPE` injected with HARD wording for single/small/epic;
   // The directive must precede the ask so it governs the decomposition
   // instead of reading as part of the request text.
   assert.ok(singleTail.indexOf('# SCOPE') < singleTail.indexOf('do the thing'), 'the SCOPE block precedes the ask');
-  assert.ok(single.startsWith('# Mercury Decomposer — Phase 1 (Break-Down)'),
+  assert.ok(single.startsWith('# Radsvinn Decomposer — Phase 1 (Break-Down)'),
     'the decomposer prompt body now leads the composed message');
   assert.ok(singleTail.indexOf('# OUTPUT LANGUAGE') < singleTail.indexOf('# SCOPE'),
     'the language directive still leads the service-specific directives');
@@ -126,7 +126,7 @@ test('scope_hint e2e (fake engine): a single-scoped plan flows to shape_ready �
   // skeletons are already legal per internal/checks/skeleton.go), and the
   // scope directive is a prompt-level constraint checked by the HUMAN at
   // the shape gate, never a new machine gate.
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const res = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', scope_hint: 'single' });

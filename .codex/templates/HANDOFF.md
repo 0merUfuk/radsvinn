@@ -1,4 +1,4 @@
-# Mercury Handoff Template
+# Radsvinn Handoff Template
 
 Starting shape for `tasks/{slug}/HANDOFF.md`.
 

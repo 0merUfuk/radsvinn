@@ -14,7 +14,7 @@ const TODAY_FIELDS = ['plan_id', 'status', 'description', 'updated_at', 'surface
 const ADDITIVE_FIELDS = ['requester', 'requester_id', 'cost_usd', 'created_at', 'grounding_hint', 'attach_key'];
 
 test("bare GET /plans: today's six fields are byte-identical, plus exactly the six additive item fields", async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const longDescription = 'y'.repeat(200);
@@ -68,7 +68,7 @@ test("bare GET /plans: today's six fields are byte-identical, plus exactly the s
 });
 
 test('bare GET /plans omits next_cursor entirely when everything fits on one page', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const listed = await getJson(ctx.baseUrl, '/plans');
@@ -78,7 +78,7 @@ test('bare GET /plans omits next_cursor entirely when everything fits on one pag
 });
 
 test('cursor walk over 7 plans with COLLIDING updated_at, limit=3: every plan visited exactly once, tie-broken on plan_id desc', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const planIds = [];
@@ -148,7 +148,7 @@ test('limit bounds: 0, 201, and non-integer junk all 400; 1/50/200 are accepted'
 });
 
 test('status filter: an unknown status 400s; a valid comma-list filters correctly', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const bad = await getJson(ctx.baseUrl, '/plans?status=not_a_status');
@@ -169,7 +169,7 @@ test('status filter: an unknown status 400s; a valid comma-list filters correctl
 });
 
 test('malformed cursor 400s; an explicitly EMPTY cursor is treated as "no cursor" (200, first page)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });

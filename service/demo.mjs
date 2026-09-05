@@ -6,6 +6,7 @@
 // The engine and tracker writer remain fake. A temporary local git repository
 // supplies origin/main anchor objects to the real plan gate without a remote.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,9 +19,9 @@ import { createServer } from './server.mjs';
 import { TRANSIENT_STATUSES } from './state.mjs';
 
 const SERVICE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const MERCURY_ROOT = path.resolve(SERVICE_DIR, '..');
-const DEFAULT_ASK_PATH = path.join(MERCURY_ROOT, 'fixtures', 'demo', 'ask.md');
-const FIXTURE_PLAN_PATH = path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'plan.json');
+const RADSVINN_ROOT = path.resolve(SERVICE_DIR, '..');
+const DEFAULT_ASK_PATH = path.join(RADSVINN_ROOT, 'fixtures', 'demo', 'ask.md');
+const FIXTURE_PLAN_PATH = path.join(RADSVINN_ROOT, 'fixtures', 'e2e-sample', 'plan.json');
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_CLEANUP_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 25;
@@ -29,7 +30,7 @@ const DEMO_TREECHECK_COMMAND = Object.freeze({
   command: 'go',
   args: Object.freeze(['run', './cmd/treecheck']),
 });
-const DEMO_COUPLING_MAP = path.join(MERCURY_ROOT, 'coupling-map.yaml');
+const DEMO_COUPLING_MAP = path.join(RADSVINN_ROOT, 'coupling-map.yaml');
 
 export class DemoTimeoutError extends Error {
   constructor(message) {
@@ -59,10 +60,10 @@ function gitEnv(configPath) {
     GIT_CONFIG_GLOBAL: configPath,
     GIT_CONFIG_SYSTEM: configPath,
     GIT_CONFIG_NOSYSTEM: '1',
-    GIT_AUTHOR_NAME: 'Mercury Demo',
-    GIT_AUTHOR_EMAIL: 'demo@mercury.invalid',
-    GIT_COMMITTER_NAME: 'Mercury Demo',
-    GIT_COMMITTER_EMAIL: 'demo@mercury.invalid',
+    GIT_AUTHOR_NAME: 'Radsvinn Demo',
+    GIT_AUTHOR_EMAIL: 'demo@radsvinn.invalid',
+    GIT_COMMITTER_NAME: 'Radsvinn Demo',
+    GIT_COMMITTER_EMAIL: 'demo@radsvinn.invalid',
   };
 }
 
@@ -124,7 +125,7 @@ export function seedGroundingRoot(resultsDir, suppliedPlan) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     const symbolLines = [...symbols].map((symbol) => `// anchor symbol: ${symbol}`);
     fs.writeFileSync(filePath, [
-      '// Placeholder tracked only inside the temporary Mercury demo grounding repo.',
+      '// Placeholder tracked only inside the temporary Radsvinn demo grounding repo.',
       ...symbolLines,
       '',
     ].join('\n'));
@@ -141,7 +142,7 @@ export function seedGroundingRoot(resultsDir, suppliedPlan) {
   for (const repoDir of repoDirs) {
     runGit(repoDir, ['init', '--quiet', `--template=${templateDir}`], gitOptions);
     runGit(repoDir, ['add', '--all'], gitOptions);
-    runGit(repoDir, ['commit', '--quiet', '--no-gpg-sign', '-m', 'Seed Mercury demo anchors'], gitOptions);
+    runGit(repoDir, ['commit', '--quiet', '--no-gpg-sign', '-m', 'Seed Radsvinn demo anchors'], gitOptions);
     // The checker resolves only git objects reachable from origin/main. This
     // local remote-tracking ref has no configured remote and performs no I/O.
     runGit(repoDir, ['update-ref', 'refs/remotes/origin/main', 'HEAD'], gitOptions);
@@ -241,6 +242,7 @@ export async function runDemo(options = {}) {
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const logger = options.logger || console.log;
+  logger('[Radsvinn demo] deterministic fixtures; no model or tracker calls');
   const tempParent = options.tempParent || os.tmpdir();
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -254,7 +256,7 @@ export async function runDemo(options = {}) {
   const description = fs.readFileSync(askPath, 'utf8').trim();
   if (!description) throw new Error(`demo ask is empty: ${askPath}`);
 
-  const resultsDir = fs.mkdtempSync(path.join(tempParent, 'mercury-demo-'));
+  const resultsDir = fs.mkdtempSync(path.join(tempParent, 'radsvinn-demo-'));
   let app;
   let baseUrl;
   let outcome;
@@ -386,7 +388,7 @@ export async function runDemo(options = {}) {
 }
 
 function cliTimeoutMs() {
-  const raw = process.env.MERCURY_DEMO_TIMEOUT_MS;
+  const raw = readEnv('RADSVINN_DEMO_TIMEOUT_MS');
   return raw === undefined ? DEFAULT_TIMEOUT_MS : Number(raw);
 }
 

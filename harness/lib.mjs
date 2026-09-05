@@ -1,4 +1,5 @@
-// Mercury calibration harness — shared library.
+import { sandboxedEnv, redactSecrets } from '../dashboard/lib/child-env.mjs';
+// Radsvinn calibration harness — shared library.
 //
 // Deliberately disposable glue: correctness + observability over elegance.
 // This module is the ONLY place that shells out to the `claude` CLI and the
@@ -22,7 +23,7 @@ import yaml from 'js-yaml';
 
 
 export const HARNESS_DIR = path.dirname(fileURLToPath(import.meta.url));
-export const MERCURY_ROOT = path.resolve(HARNESS_DIR, '..');
+export const RADSVINN_ROOT = path.resolve(HARNESS_DIR, '..');
 
 // ───────────────────────────── loaders / io ──────────────────────────────
 
@@ -66,17 +67,17 @@ export function uuid() {
 // ─────────────────────────────── config ──────────────────────────────────
 
 // loadConfig reads harness/config.yaml and resolves every declared path to an
-// absolute path under MERCURY_ROOT (as documented in config.yaml). thresholds
+// absolute path under RADSVINN_ROOT (as documented in config.yaml). thresholds
 // values (weights, cutoffs, regen N) are read from the resolved thresholds.yaml.
 export function loadConfig() {
   const cfg = loadYaml(path.join(HARNESS_DIR, 'config.yaml'));
   const p = cfg.paths;
   const abs = {
-    prompts: path.resolve(MERCURY_ROOT, p.prompts),
-    thresholds: path.resolve(MERCURY_ROOT, p.thresholds),
-    coupling_map: path.resolve(MERCURY_ROOT, p.coupling_map),
-    repos_root: path.resolve(MERCURY_ROOT, p.repos_root),
-    contracts: path.resolve(MERCURY_ROOT, p.contracts),
+    prompts: path.resolve(RADSVINN_ROOT, p.prompts),
+    thresholds: path.resolve(RADSVINN_ROOT, p.thresholds),
+    coupling_map: path.resolve(RADSVINN_ROOT, p.coupling_map),
+    repos_root: path.resolve(RADSVINN_ROOT, p.repos_root),
+    contracts: path.resolve(RADSVINN_ROOT, p.contracts),
   };
   const thresholds = loadYaml(abs.thresholds);
   return { ...cfg, absPaths: abs, thresholds };
@@ -205,9 +206,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // timeout with SIGKILL + a maxBuffer cap; resolves { stdout } or rejects with a
 // rich error (code / signal / stderr tail) the caller persists as evidence.
 // (promisified execFile accepts neither `input` nor `stdio`, hence raw spawn.)
-function runClaudeSpawn(args, { cwd, timeoutMs, maxBuffer = 32 * 1024 * 1024 }) {
+export function runClaudeSpawn(args, { cwd, timeoutMs, maxBuffer = 32 * 1024 * 1024, env = process.env, spawnImpl = spawn }) {
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawnImpl('claude', args, { cwd, env: sandboxedEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     let outLen = 0;
@@ -219,13 +220,13 @@ function runClaudeSpawn(args, { cwd, timeoutMs, maxBuffer = 32 * 1024 * 1024 }) 
       if (outLen > maxBuffer) { killedForBuffer = true; child.kill('SIGKILL'); return; }
       out += d;
     });
-    child.stderr.on('data', (d) => { err += d; if (err.length > 65536) err = err.slice(-65536); });
+    child.stderr.on('data', (d) => { err += d; if (err.length > 65536) err = redactSecrets(err, env).slice(-65536); });
     child.on('error', (e) => { clearTimeout(timer); reject(new Error(`claude spawn failed: ${e.message}`)); });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
       if (timedOut) return reject(Object.assign(new Error('timed out'), { timedOut: true }));
       if (killedForBuffer) return reject(new Error(`claude stdout exceeded ${maxBuffer} bytes`));
-      if (code !== 0) return reject(Object.assign(new Error(`claude exit ${code}`), { code, signal, stderr: err }));
+      if (code !== 0) return reject(Object.assign(new Error(`claude exit ${code}`), { code, signal, stderr: redactSecrets(err, env) }));
       resolve({ stdout: out });
     });
   });
@@ -329,11 +330,11 @@ export async function invokeClaude({
 // ─────────────────────────────── treecheck ───────────────────────────────
 
 // buildTreecheck compiles cmd/treecheck to binOut (go build -o, one build per
-// run rather than go-run-per-call). It does not modify any mercury source.
+// run rather than go-run-per-call). It does not modify any radsvinn source.
 export function buildTreecheck(binOut) {
   ensureDir(path.dirname(binOut));
   const r = spawnSync('go', ['build', '-o', binOut, './cmd/treecheck'], {
-    cwd: MERCURY_ROOT, encoding: 'utf8',
+    cwd: RADSVINN_ROOT, encoding: 'utf8',
   });
   if (r.status !== 0) {
     throw new Error(`go build treecheck failed (status ${r.status}): ${r.stderr || r.stdout}`);

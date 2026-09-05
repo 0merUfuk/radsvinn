@@ -5,7 +5,7 @@ import path from 'node:path';
 import { startTestServer, postJson, getJson, pollUntil } from './helpers.mjs';
 
 test('happy path: plan -> shape_ready -> approve-shape -> plan_ready -> create -> created (cost 2.0)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', {
@@ -43,7 +43,7 @@ test('happy path: plan -> shape_ready -> approve-shape -> plan_ready -> create -
   assert.equal(planReady.body.status, 'plan_ready');
   assert.ok(planReady.body.plan, 'groomed plan should be present in the view');
   assert.ok(planReady.body.plan_gate, 'plan_gate should be present');
-  assert.equal(planReady.body.plan_gate.skipped, true, 'plan gate is skipped via MERCURY_SKIP_PLAN_ANCHORS=1 in this env');
+  assert.equal(planReady.body.plan_gate.skipped, true, 'plan gate is skipped via RADSVINN_SKIP_PLAN_ANCHORS=1 in this env');
   assert.equal(planReady.body.cost_usd, 1.7);
   assert.ok(planReady.body.duplicate_search, 'advisory duplicate_search should be attached at plan_ready');
   assert.equal(planReady.body.duplicate_search.ok, true);
@@ -72,7 +72,7 @@ test('happy path: plan -> shape_ready -> approve-shape -> plan_ready -> create -
 });
 
 test('C0: requester_id is persisted and echoed by GET /plan (toPublicView); missing/junk fails OPEN', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // WITH requester_id → round-trips through the view. THIS assertion is the
@@ -104,7 +104,7 @@ test('C0: requester_id is persisted and echoed by GET /plan (toPublicView); miss
 });
 
 test('C0 fail-open adversarial: an OBJECT or a null requester_id never causes a 4xx — both degrade to an empty string', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // typeof body.requester_id === 'string' ? … : '' — an object is truthy but
@@ -136,7 +136,7 @@ test('C0 fail-open adversarial: an OBJECT or a null requester_id never causes a 
 });
 
 test('CAS transitions: second approve-shape 409s; reject cannot be overridden by create', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -160,7 +160,7 @@ test('CAS transitions: second approve-shape 409s; reject cannot be overridden by
 });
 
 test('create failure path: control-plane create throws -> status failed with actionable error', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_FAIL: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -179,7 +179,7 @@ test('create failure path: control-plane create throws -> status failed with act
 });
 
 test('output_language: validated on POST /plan and echoed in the view', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const bad = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', output_language: 'de' });
@@ -196,7 +196,7 @@ test('output_language: validated on POST /plan and echoed in the view', async (t
 });
 
 test('retry: failed + skeleton present -> grooming; non-failed -> 409', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_FAIL: '1' });
   t.after(() => ctx.close());
 
   // Drive a plan to `failed` at the create step (skeleton + plan.json both
@@ -220,7 +220,7 @@ test('retry: failed + skeleton present -> grooming; non-failed -> 409', async (t
   // phase-1 redo.
   const failed = await getJson(ctx.baseUrl, `/plan/${planId}`);
   assert.equal(failed.body.status, 'failed');
-  // MERCURY_FAKE_CREATE_FAIL models create-tree dying BEFORE its first Jira
+  // RADSVINN_FAKE_CREATE_FAIL models create-tree dying BEFORE its first Jira
   // write — no record lands on disk, so the retry write guard retry guard has nothing to
   // protect and must NOT block this retry.
   assert.ok(
@@ -230,7 +230,7 @@ test('retry: failed + skeleton present -> grooming; non-failed -> 409', async (t
   // "Transient cause cleared" → the retried create must run for real and
   // SUCCEED (the retry write guard only blocks retries when a record proves Jira
   // writes already happened). ctx.close() restores the env var.
-  process.env.MERCURY_FAKE_CREATE_FAIL = '0';
+  process.env.RADSVINN_FAKE_CREATE_FAIL = '0';
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retry.status, 202, 'retry from failed is accepted');
   assert.equal(retry.body.status, 'creating', 'a create-step failure resumes at creating, not phase 1');
@@ -241,10 +241,10 @@ test('retry: failed + skeleton present -> grooming; non-failed -> 409', async (t
 });
 
 test('retry: groom fails for insufficient provider balance, then resumes at grooming and completes', async (t) => {
-  // MERCURY_FAKE_GROOM_FAIL makes groom throw with skeleton.json present but
+  // RADSVINN_FAKE_GROOM_FAIL makes groom throw with skeleton.json present but
   // no plan.json — the expected state when provider balance runs out
   // mid-groom.
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_GROOM_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_GROOM_FAIL: '1' });
   t.after(() => ctx.close());
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', output_language: 'tr' });
   const planId = created.body.plan_id;
@@ -257,7 +257,7 @@ test('retry: groom fails for insufficient provider balance, then resumes at groo
   // "Top up the balance" → clear the fake failure, then retry. The engine
   // reads process.env at call time and the test server is in-process, so this
   // takes effect for the retried groom; ctx.close() restores it.
-  process.env.MERCURY_FAKE_GROOM_FAIL = '0';
+  process.env.RADSVINN_FAKE_GROOM_FAIL = '0';
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retry.status, 202);
   assert.equal(retry.body.status, 'grooming', 'retry resumes at grooming — no phase-1 redo');
@@ -266,7 +266,7 @@ test('retry: groom fails for insufficient provider balance, then resumes at groo
 });
 
 test('approve-shape with skeleton_edits rewrites the file and re-gates before grooming', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -303,7 +303,7 @@ test('approve-shape with skeleton_edits rewrites the file and re-gates before gr
 });
 
 test('approve-shape with a gate-failing skeleton_edits is rejected 422 and does not transition', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -321,7 +321,7 @@ test('approve-shape with a gate-failing skeleton_edits is rejected 422 and does 
 });
 
 test('reject: illegal before shape_ready (409), allowed at shape_ready (200), locks further transitions', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -392,7 +392,7 @@ test('unknown plan id -> 404, malformed uuid -> 404', async (t) => {
 });
 
 test('GET /plans lists a created plan, description truncated to 80 chars', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const longDescription = 'x'.repeat(120);
@@ -434,7 +434,7 @@ test('unknown route -> 404, wrong method on a known route -> 405', async (t) => 
 });
 
 test('bearer auth: 401 without token / wrong token, 200 with the right token; healthz always open', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SERVICE_TOKEN: 'sekret-1234' });
+  const ctx = await startTestServer({ RADSVINN_SERVICE_TOKEN: 'sekret-1234' });
   t.after(() => ctx.close());
 
   const noAuth = await postJson(ctx.baseUrl, '/plan', { description: 'ok', requester: 'test-requester' });

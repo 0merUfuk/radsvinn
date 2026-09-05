@@ -1,12 +1,14 @@
 // openrouter-meter.mjs — provider-authoritative OpenRouter egress meter.
 //
-// Claude Code's `total_cost_usd` is intentionally NOT used when Mercury is
+// Claude Code's `total_cost_usd` is intentionally NOT used when Radsvinn is
 // routed through OpenRouter.  A fresh loopback proxy is created for each
 // `claude -p` invocation.  The subprocess gets a single-use-for-that-session
 // capability, never the OpenRouter credential; the proxy records every
 // X-Generation-Id and reconciles each receipt through OpenRouter's generation
 // endpoint after the subprocess exits.  Any uncertainty is a hard failure.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
+import { sandboxedEnv } from '../dashboard/lib/child-env.mjs';
 import crypto from 'node:crypto';
 import http from 'node:http';
 import https from 'node:https';
@@ -23,7 +25,7 @@ const DEFAULT_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
 // far below one cent, and rounding each call to cents before a breaker sees it
 // would let an arbitrary number of low-price calls evade the cap.  1e9 is
 // exactly representable and leaves a large safety margin below Number's
-// integer limit for Mercury's deliberately-small daily limits.
+// integer limit for Radsvinn's deliberately-small daily limits.
 export const NANODOLLARS_PER_USD = 1_000_000_000;
 
 export class CostTelemetryError extends Error {
@@ -63,14 +65,14 @@ export function nanodollarsToUsd(nanos) {
 }
 
 export function resolveLlmRuntime(env = process.env) {
-  const provider = env.MERCURY_LLM_PROVIDER || 'anthropic';
+  const provider = readEnv('RADSVINN_LLM_PROVIDER', env) || 'anthropic';
   if (provider === 'anthropic') return { provider };
   if (provider !== 'openrouter') {
-    throw new Error('MERCURY_LLM_PROVIDER must be "anthropic" or "openrouter"');
+    throw new Error('RADSVINN_LLM_PROVIDER must be "anthropic" or "openrouter"');
   }
-  const apiKey = env.MERCURY_OPENROUTER_API_KEY;
+  const apiKey = readEnv('RADSVINN_OPENROUTER_API_KEY', env);
   if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-    throw new Error('MERCURY_OPENROUTER_API_KEY is required when MERCURY_LLM_PROVIDER=openrouter');
+    throw new Error('RADSVINN_OPENROUTER_API_KEY is required when RADSVINN_LLM_PROVIDER=openrouter');
   }
   return { provider, apiKey: apiKey.trim(), model: OPENROUTER_MODEL };
 }
@@ -80,9 +82,9 @@ export function resolveLlmRuntime(env = process.env) {
 // phase cannot silently resolve to an expensive Claude model.  The proxy then
 // independently rejects any payload whose final model is not the exact slug.
 export function openRouterChildEnv(parentEnv, { baseUrl, capability }) {
-  const env = { ...parentEnv };
+  const env = sandboxedEnv(parentEnv);
   for (const key of [
-    'MERCURY_OPENROUTER_API_KEY', 'OPENROUTER_API_KEY',
+    'RADSVINN_OPENROUTER_API_KEY', 'OPENROUTER_API_KEY',
     'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
   ]) delete env[key];
   env.ANTHROPIC_BASE_URL = baseUrl;
@@ -222,7 +224,7 @@ function defaultSleep(ms) {
 }
 
 function openRouterRequestTimeoutMs() {
-  const raw = Number(process.env.MERCURY_OPENROUTER_REQUEST_TIMEOUT_MS);
+  const raw = Number(readEnv('RADSVINN_OPENROUTER_REQUEST_TIMEOUT_MS'));
   // Long-running tool loops and cold provider queues are normal enough that a
   // 30-second idle socket cap is a reliability bug.  Keep an operator-tunable
   // finite bound well below the engine's 45-minute outer phase timeout.

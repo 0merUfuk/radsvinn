@@ -21,7 +21,7 @@ export function createLogger(write = (line) => console.error(line)) {
     const parts = Object.entries(fields)
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `${k}=${v}`);
-    write(`[mercury-dashboard] ${prefix} ${parts.join(' ')}`.trimEnd());
+    write(`[radsvinn-dashboard] ${prefix} ${parts.join(' ')}`.trimEnd());
   }
 
   return {

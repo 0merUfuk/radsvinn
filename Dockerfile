@@ -1,4 +1,4 @@
-# Dockerfile — Mercury planner, one container for Railway.
+# Dockerfile — Radsvinn planner, one container for Railway.
 #
 # Two processes inside (service/server.mjs + service/slack.mjs), supervised
 # by service/supervise.mjs, booted through deploy/entrypoint.mjs (volume
@@ -40,11 +40,14 @@ WORKDIR /app
 COPY . .
 COPY --from=treecheck /treecheck /usr/local/bin/treecheck
 
-# MERCURY_REQUIRE_AUTH / MERCURY_REQUIRE_ENV_ONLY_TOKEN: the fail-closed
+# RADSVINN_REQUIRE_AUTH / RADSVINN_REQUIRE_ENV_ONLY_TOKEN: the fail-closed
 # boot gates are ON inside the container — even the loopback-bound server
 # must carry real bearer auth, and the Jira token must be env-only (no
-# file fallback on a server). MERCURY_FETCH_BEFORE_PLAN: fetch-before-plan — refresh
+# file fallback on a server). RADSVINN_FETCH_BEFORE_PLAN: fetch-before-plan — refresh
 # grounding repos before every plan, degrade visibly when that fails.
+# Keep image defaults on deprecated aliases: Docker merges operator env before
+# Node starts, so canonical image defaults would hide legacy operator overrides.
+# Operators should set RADSVINN_*; the shared resolver gives those precedence.
 ENV MERCURY_TREECHECK_BIN=/usr/local/bin/treecheck \
   NODE_ENV=production \
   MERCURY_REQUIRE_AUTH=1 \

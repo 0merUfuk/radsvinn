@@ -16,7 +16,7 @@ import { skeletonMessage } from '../slack-blocks.mjs';
 import { startTestServer, postJson, getJson, pollUntil } from './helpers.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MERCURY_ROOT = path.resolve(HERE, '..', '..');
+const RADSVINN_ROOT = path.resolve(HERE, '..', '..');
 
 function git(args, opts = {}) {
   const res = spawnSync('git', args, { encoding: 'utf8', ...opts });
@@ -28,7 +28,7 @@ function git(args, opts = {}) {
 // a sibling bare origin, so `git fetch origin main` succeeds with zero
 // network.
 function makeRoot(t) {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-grounding-'));
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-grounding-'));
   t.after(() => fs.rmSync(base, { recursive: true, force: true }));
   const root = path.join(base, 'repos');
   fs.mkdirSync(root);
@@ -67,7 +67,7 @@ function withEnv(t, key, value) {
 // and exits as told — the house-clean seam for asserting WHAT fetchOne's
 // spawn carries without shipping a token to any real git.
 function makeGitShim(t, { exitCode = 0, stderrLine = '' } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-git-shim-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-git-shim-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const dump = path.join(dir, 'env-dump.txt');
   const script = [
@@ -95,16 +95,16 @@ function addShimRepo(root, name) {
 // reposRoot()
 // ---------------------------------------------------------------------------
 
-test('reposRoot: defaults to the sibling ../grounding, resolved against the mercury root', (t) => {
-  withEnv(t, 'MERCURY_REPOS_ROOT', undefined);
-  assert.equal(reposRoot(), path.resolve(MERCURY_ROOT, '..', 'grounding'));
+test('reposRoot: defaults to the sibling ../grounding, resolved against the radsvinn root', (t) => {
+  withEnv(t, 'RADSVINN_REPOS_ROOT', undefined);
+  assert.equal(reposRoot(), path.resolve(RADSVINN_ROOT, '..', 'grounding'));
 });
 
-test('reposRoot: an absolute MERCURY_REPOS_ROOT is used as-is; a relative one resolves against the mercury root', (t) => {
-  withEnv(t, 'MERCURY_REPOS_ROOT', '/data/repos');
+test('reposRoot: an absolute RADSVINN_REPOS_ROOT is used as-is; a relative one resolves against the radsvinn root', (t) => {
+  withEnv(t, 'RADSVINN_REPOS_ROOT', '/data/repos');
   assert.equal(reposRoot(), '/data/repos');
-  withEnv(t, 'MERCURY_REPOS_ROOT', 'my-repos');
-  assert.equal(reposRoot(), path.resolve(MERCURY_ROOT, 'my-repos'));
+  withEnv(t, 'RADSVINN_REPOS_ROOT', 'my-repos');
+  assert.equal(reposRoot(), path.resolve(RADSVINN_ROOT, 'my-repos'));
 });
 
 // ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ test('reposRoot: an absolute MERCURY_REPOS_ROOT is used as-is; a relative one re
 // ---------------------------------------------------------------------------
 
 test('fetch-before-plan: flag off → undefined (no grounding field, legacy shape untouched)', async (t) => {
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', undefined);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', undefined);
   assert.equal(await fetchGroundingRepos(), undefined);
 });
 
@@ -120,8 +120,8 @@ test('fetch-before-plan: every repo fetches clean → {ok:true}', async (t) => {
   const { base, root } = makeRoot(t);
   addHealthyRepo(base, root, 'repo-a');
   addHealthyRepo(base, root, 'repo-b');
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   const res = await fetchGroundingRepos();
   assert.deepEqual(res, { ok: true });
 });
@@ -130,8 +130,8 @@ test('fetch-before-plan: a repo with a bogus origin → ok:false, the failing re
   const { base, root } = makeRoot(t);
   addHealthyRepo(base, root, 'repo-good');
   addBrokenRepo(root, 'repo-broken');
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   const res = await fetchGroundingRepos();
   assert.equal(res.ok, false);
   assert.match(res.detail, /repo-broken/, 'the failing repo is named');
@@ -141,27 +141,27 @@ test('fetch-before-plan: a repo with a bogus origin → ok:false, the failing re
 test('fetch-before-plan: zero git repos under the root is a misconfiguration → ok:false', async (t) => {
   const { root } = makeRoot(t);
   fs.mkdirSync(path.join(root, 'not-a-repo')); // a dir without .git is skipped
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   const res = await fetchGroundingRepos();
   assert.equal(res.ok, false);
   assert.match(res.detail, /no git repositories/);
 });
 
 test('fetch-before-plan: a missing root → ok:false naming the root, never a throw', async (t) => {
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', '/nonexistent/mercury-grounding-root');
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', '/nonexistent/radsvinn-grounding-root');
   const res = await fetchGroundingRepos();
   assert.equal(res.ok, false);
   assert.match(res.detail, /unreadable/);
-  assert.match(res.detail, /\/nonexistent\/mercury-grounding-root/);
+  assert.match(res.detail, /\/nonexistent\/radsvinn-grounding-root/);
 });
 
 test('fetch-before-plan freshness: an upstream commit+file lands in the WORKING TREE after fetchGroundingRepos, not just in refs', async (t) => {
   const { base, root } = makeRoot(t);
   addHealthyRepo(base, root, 'repo-fresh');
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   withEnv(t, 'GITHUB_TOKEN', undefined); // local-path origin — no auth in play
 
   // The origin gains a commit + file AFTER the clone: the agent's checkout
@@ -189,8 +189,8 @@ test('fetch-before-plan auth: with GITHUB_TOKEN set, the git spawn env carries t
   addShimRepo(root, 'repo-x');
   const { shimDir, dump } = makeGitShim(t);
   withEnv(t, 'PATH', `${shimDir}${path.delimiter}${process.env.PATH}`);
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   withEnv(t, 'GITHUB_TOKEN', 'shim-token-123');
 
   const res = await fetchGroundingRepos();
@@ -220,8 +220,8 @@ test('fetch-before-plan auth: a failing fetch NEVER leaks the token into detail 
     stderrLine: "fatal: unable to access 'https://x-access-token:sekret-token-123@github.com/example-org/repo-leaky/': 403 sekret-token-123 rejected",
   });
   withEnv(t, 'PATH', `${shimDir}${path.delimiter}${process.env.PATH}`);
-  withEnv(t, 'MERCURY_FETCH_BEFORE_PLAN', '1');
-  withEnv(t, 'MERCURY_REPOS_ROOT', root);
+  withEnv(t, 'RADSVINN_FETCH_BEFORE_PLAN', '1');
+  withEnv(t, 'RADSVINN_REPOS_ROOT', root);
   withEnv(t, 'GITHUB_TOKEN', 'sekret-token-123');
 
   const res = await fetchGroundingRepos();
@@ -239,9 +239,9 @@ test('fetch-before-plan wire: with the flag on, the plan carries grounding (ok:t
   const { base, root } = makeRoot(t);
   addHealthyRepo(base, root, 'repo-a');
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FETCH_BEFORE_PLAN: '1',
-    MERCURY_REPOS_ROOT: root,
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FETCH_BEFORE_PLAN: '1',
+    RADSVINN_REPOS_ROOT: root,
   });
   t.after(() => ctx.close());
 
@@ -259,9 +259,9 @@ test('fetch-before-plan wire: a failing fetch degrades VISIBLY (grounding.ok:fal
   const { root } = makeRoot(t);
   addBrokenRepo(root, 'repo-broken');
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FETCH_BEFORE_PLAN: '1',
-    MERCURY_REPOS_ROOT: root,
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FETCH_BEFORE_PLAN: '1',
+    RADSVINN_REPOS_ROOT: root,
   });
   t.after(() => ctx.close());
 
@@ -278,7 +278,7 @@ test('fetch-before-plan wire: a failing fetch degrades VISIBLY (grounding.ok:fal
 });
 
 test('fetch-before-plan wire: flag off → NO grounding field on the plan (legacy shape)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });

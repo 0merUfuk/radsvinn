@@ -1,11 +1,11 @@
 ---
-name: mercury-doublecheck
-title: Mercury Adversarial Verification
-description: Run four orthogonal adversarial passes before a Mercury gate.
+name: radsvinn-doublecheck
+title: Radsvinn Adversarial Verification
+description: Run four orthogonal adversarial passes before a Radsvinn gate.
 version: 1.0
 ---
 
-# Mercury Doublecheck
+# Radsvinn Doublecheck
 
 Before any human gate or merge, run four adversarial passes. "Looks good" is forbidden.
 

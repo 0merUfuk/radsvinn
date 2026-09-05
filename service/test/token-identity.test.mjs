@@ -23,9 +23,9 @@ async function driveToPlanReady(ctx, headers, actor) {
 
 test('classifyClient: the primary token tags client:"slack", the dashboard token tags client:"dashboard", anything else 401s', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_SERVICE_TOKEN: 'bridge-secret',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'dash-secret',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_SERVICE_TOKEN: 'bridge-secret',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'dash-secret',
   });
   t.after(() => ctx.close());
 
@@ -58,9 +58,9 @@ test('classifyClient: the primary token tags client:"slack", the dashboard token
 
 test('a blank/whitespace-only dashboard token is treated as NOT CONFIGURED — that bearer arm is disabled entirely', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_SERVICE_TOKEN: 'bridge-secret',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: '   ',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_SERVICE_TOKEN: 'bridge-secret',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: '   ',
   });
   t.after(() => ctx.close());
 
@@ -78,9 +78,9 @@ test('a blank/whitespace-only dashboard token is treated as NOT CONFIGURED — t
 
 test('dashboard-token create/cancel require the typed confirm string; missing or mismatched -> 400 and never trips the CAS; bridge token is unaffected', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_SERVICE_TOKEN: 'bridge-secret',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'dash-secret',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_SERVICE_TOKEN: 'bridge-secret',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'dash-secret',
   });
   t.after(() => ctx.close());
   const dashHeaders = { Authorization: 'Bearer dash-secret' };
@@ -131,15 +131,15 @@ test('identical dashboard and primary tokens fail service construction', () => {
       token: 'same-secret',
       dashboardToken: 'same-secret',
     }),
-    /MERCURY_SERVICE_TOKEN_DASHBOARD must be distinct from MERCURY_SERVICE_TOKEN/,
+    /RADSVINN_SERVICE_TOKEN_DASHBOARD must be distinct from RADSVINN_SERVICE_TOKEN/,
     'a shared bearer would disable dashboard-only actor and confirmation enforcement',
   );
 });
 
 test('control: distinct dashboard and primary tokens construct and authenticate normally', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SERVICE_TOKEN: 'one-secret',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'a-different-secret',
+    RADSVINN_SERVICE_TOKEN: 'one-secret',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'a-different-secret',
   });
   t.after(() => ctx.close());
 

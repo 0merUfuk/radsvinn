@@ -4,8 +4,8 @@
 //
 // Why a separate file (not cancel.test.mjs): `node --test` runs each test
 // FILE in its own child process, so the knobs this file flips
-// (MERCURY_FAKE_VERIFY_FAIL, MERCURY_FAKE_CREATE_PARTIAL,
-// MERCURY_FAKE_CLEANUP_FAIL, MERCURY_DAILY_HARD_USD) are process-isolated
+// (RADSVINN_FAKE_VERIFY_FAIL, RADSVINN_FAKE_CREATE_PARTIAL,
+// RADSVINN_FAKE_CLEANUP_FAIL, RADSVINN_DAILY_HARD_USD) are process-isolated
 // from cancel.test.mjs and retry-guard.test.mjs running concurrently. Within
 // this file, top-level tests run sequentially and every env mutation is
 // restored by ctx.close() / t.after (house pattern).
@@ -76,7 +76,7 @@ function makeGate() {
  * a gated verify/cleanup parks until its gate is released, then returns ok
  * — which lets a test hold a plan in `creating`/`cancelling` for as long as
  * the assertions need. Ungated methods delegate to the real fake engine
- * (so the MERCURY_FAKE_* knobs still steer create/phase1/groom).
+ * (so the RADSVINN_FAKE_* knobs still steer create/phase1/groom).
  */
 function makeCountingEngine({ gateVerify, gateCleanup, rejectCleanupOnce } = {}) {
   const fake = createEngine('fake');
@@ -116,11 +116,11 @@ function makeCountingEngine({ gateVerify, gateCleanup, rejectCleanupOnce } = {})
 }
 
 /** Boots a fake createServer on a fresh tmp root — no env dependence except
- * its explicit fake-only MERCURY_SKIP_PLAN_ANCHORS whole-plan-gate skip. */
+ * its explicit fake-only RADSVINN_SKIP_PLAN_ANCHORS whole-plan-gate skip. */
 async function startEngineServer(engine) {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-cancel-interplay-'));
-  const prevAnchors = process.env.MERCURY_SKIP_PLAN_ANCHORS;
-  process.env.MERCURY_SKIP_PLAN_ANCHORS = '1';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-cancel-interplay-'));
+  const prevAnchors = process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+  process.env.RADSVINN_SKIP_PLAN_ANCHORS = '1';
   const app = createServer({ resultsDir, engineMode: 'fake', engine });
   const addr = await app.listen(0, '127.0.0.1');
   return {
@@ -129,8 +129,8 @@ async function startEngineServer(engine) {
     app,
     async close() {
       await app.close();
-      if (prevAnchors === undefined) delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
-      else process.env.MERCURY_SKIP_PLAN_ANCHORS = prevAnchors;
+      if (prevAnchors === undefined) delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+      else process.env.RADSVINN_SKIP_PLAN_ANCHORS = prevAnchors;
       fs.rmSync(resultsDir, { recursive: true, force: true });
     },
   };
@@ -160,12 +160,12 @@ test('interplay: cancel during a mid-flight retry write guard verify-only recove
 
   // Stage case A: create completes but the post-create verify reads red —
   // failed WITH the created marker (the knob steers the delegated fake).
-  setEnv(t, 'MERCURY_FAKE_VERIFY_FAIL', '1');
+  setEnv(t, 'RADSVINN_FAKE_VERIFY_FAIL', '1');
   const { planId, settled: failed } = await driveThroughCreate(ctx);
   assert.equal(failed.body.status, 'failed');
   const recordPath = failed.body.created.record_path;
   injectSentinel(recordPath);
-  process.env.MERCURY_FAKE_VERIFY_FAIL = '0'; // the setEnv above restores on exit
+  process.env.RADSVINN_FAKE_VERIFY_FAIL = '0'; // the setEnv above restores on exit
 
   // Retry routes retry write guard case A: 202 creating, worker parked on the verify gate.
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
@@ -281,12 +281,12 @@ test('race: concurrent cancel + retry from failed-with-record — one 202/one 40
 
   // Stage case A failed-with-record (the only status where BOTH buttons are
   // live on the same Slack message — this race is one user away).
-  setEnv(t, 'MERCURY_FAKE_VERIFY_FAIL', '1');
+  setEnv(t, 'RADSVINN_FAKE_VERIFY_FAIL', '1');
   const { planId, settled: failed } = await driveThroughCreate(ctx);
   assert.equal(failed.body.status, 'failed');
   const recordPath = failed.body.created.record_path;
   injectSentinel(recordPath);
-  process.env.MERCURY_FAKE_VERIFY_FAIL = '0'; // the setEnv above restores on exit
+  process.env.RADSVINN_FAKE_VERIFY_FAIL = '0'; // the setEnv above restores on exit
 
   const [cancelRes, retryRes] = await Promise.all([
     postJson(ctx.baseUrl, `/plan/${planId}/cancel`, {}),
@@ -323,7 +323,7 @@ test('race: concurrent cancel + retry from failed-with-record — one 202/one 40
 // -----------------------------------------------------------------------------
 
 test('after a failed cancel, retry routes retry write guard case A: verify-only heal to created, no --live re-create; cancel-again then completes', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CLEANUP_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CLEANUP_FAIL: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);
@@ -336,7 +336,7 @@ test('after a failed cancel, retry routes retry write guard case A: verify-only 
   assert.equal(failedCancel.body.status, 'failed');
   assert.equal(failedCancel.body.created.partial, undefined, 'a full-record marker is case A territory');
   injectSentinel(recordPath);
-  process.env.MERCURY_FAKE_CLEANUP_FAIL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CLEANUP_FAIL = '0'; // ctx.close() restores
 
   // Retry from the failed-cancel message: the README-documented "safe but
   // confusing" path — retry write guard case A re-reads the (readable) tree and heals to
@@ -363,10 +363,10 @@ test('after a failed cancel, retry routes retry write guard case A: verify-only 
 
 test('full circle, case B: retry write guard partial block -> failed cancel -> retry STILL blocked (no re-create) -> cancel-again -> cancelled with partial:true AND cancelled:true', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FAKE_CREATE_PARTIAL: '1',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FAKE_CREATE_PARTIAL: '1',
     // Not set yet — listed so ctx.close() restores whatever we set mid-test.
-    MERCURY_FAKE_CLEANUP_FAIL: undefined,
+    RADSVINN_FAKE_CLEANUP_FAIL: undefined,
   });
   t.after(() => ctx.close());
 
@@ -374,7 +374,7 @@ test('full circle, case B: retry write guard partial block -> failed cancel -> r
   // then the first retry plants the durable partial:true marker.
   const { planId, settled: failed } = await driveThroughCreate(ctx);
   assert.equal(failed.body.status, 'failed');
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
   const firstRetry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(firstRetry.status, 202);
   const blocked = await settleOutOf(ctx.baseUrl, planId, 'creating');
@@ -384,7 +384,7 @@ test('full circle, case B: retry write guard partial block -> failed cancel -> r
   injectSentinel(recordPath);
 
   // The cancel sweep fails (network down mid-undo).
-  process.env.MERCURY_FAKE_CLEANUP_FAIL = '1'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CLEANUP_FAIL = '1'; // ctx.close() restores
   const cancel = await postJson(ctx.baseUrl, `/plan/${planId}/cancel`, {});
   assert.equal(cancel.status, 202);
   const failedCancel = await settleOutOf(ctx.baseUrl, planId, 'cancelling');
@@ -395,7 +395,7 @@ test('full circle, case B: retry write guard partial block -> failed cancel -> r
   // Retry from here must route retry write guard case B (partial:true) — blocked, never a
   // re-create. This is the exact chain a confused user produces by clicking
   // Retry instead of the recommended Cancel-again.
-  process.env.MERCURY_FAKE_CLEANUP_FAIL = '0';
+  process.env.RADSVINN_FAKE_CLEANUP_FAIL = '0';
   const retryBlocked = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retryBlocked.status, 202);
   const stillBlocked = await settleOutOf(ctx.baseUrl, planId, 'creating');
@@ -421,7 +421,7 @@ test('full circle, case B: retry write guard partial block -> failed cancel -> r
 // -----------------------------------------------------------------------------
 
 test('cancelled is fully terminal: retry -> 409 and cancel-again -> 409, plan unmoved', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);
@@ -496,7 +496,7 @@ test('cleanup REJECTS (spawn failure): worker catch lands failed, marker intact,
 // -----------------------------------------------------------------------------
 
 test('cancel with the record file deleted from disk: lands failed with guidance — never a false cancelled', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);
@@ -525,7 +525,7 @@ test('cancel with the record file deleted from disk: lands failed with guidance 
 // -----------------------------------------------------------------------------
 
 test('crash-resume: after an interrupted cancel, RETRY routes retry write guard verify-only — heals to created, record byte-untouched, no re-create', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-cancel-resume-retry-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-cancel-resume-retry-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
 
   const planId = '99999999-9999-4999-8999-999999999999';
@@ -581,7 +581,7 @@ test('crash-resume: after an interrupted cancel, RETRY routes retry write guard 
 // -----------------------------------------------------------------------------
 
 test('409 wording: budget_blocked — no-record refusal, and illegal-transition refusal even with a stale marker planted', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_DAILY_HARD_USD: '0' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_DAILY_HARD_USD: '0' });
   t.after(() => ctx.close());
 
   // The $0 hard cap blocks the very first phase — terminal budget_blocked,
@@ -610,7 +610,7 @@ test('409 wording: budget_blocked — no-record refusal, and illegal-transition 
 });
 
 test('409 wording: rejected — no-record refusal, and illegal-transition refusal with a stale marker; rejection is a human decision, not undoable-by-cancel', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -633,7 +633,7 @@ test('409 wording: rejected — no-record refusal, and illegal-transition refusa
 });
 
 test('409 falsy-record edge: created plan whose marker carries record_path:"" is refused as no-record — the falsy check holds', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);

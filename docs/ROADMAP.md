@@ -1,6 +1,6 @@
 # Roadmap
 
-Where Mercury is headed. Mercury today is a strong, safety-first planning engine: two LLM
+Where Radsvinn is headed. Radsvinn today is a strong, safety-first planning engine: two LLM
 planning phases on a first-pass success (bounded gate-driven regeneration may add calls),
 bracketed by two human gates, a deterministic Go gate, a no-LLM tracker writer, spend
 breakers, request-driven compare-and-swap transitions, and crash-safe resume. The work ahead
@@ -9,7 +9,7 @@ falls into two tracks an operator can run in parallel or choose between:
 - **Track A — keep the tool healthy:** reliability, safety, and observability of the running
   planner. No generalization required.
 - **Track B — generalize into a product:** the configuration spine, adapters, docs, and the
-  coupling-map generator that let a stranger stand Mercury up against their own organization.
+  coupling-map generator that let a stranger stand Radsvinn up against their own organization.
 
 Several early items serve both. Horizons are **NOW → NEXT → LATER**, dependency-ordered.
 
@@ -25,8 +25,8 @@ tracks do not re-claim them as TODO — a stranger reading this should be able t
 |---|---|
 | **Grounding Full/Light control** — opt-in `grounding_hint`, `# GROUNDING` directive, `--max-turns` cap on decompose (flat) and groom (plan-size-scaled), surfaced at the shape gate; asymmetric default (light is never the silent default, mutation-proven) | `service/engine.mjs` (`GROUNDING_DIRECTIVES`, `lightMaxTurns`, `lightGroomMaxTurns`); `service/test/grounding-hint.test.mjs` |
 | **Denied-tool turn tax killed** — `# TOOLS` directive in service-mode phase1+groom messages; coupling map injected into phase1 under `# COUPLING MAP` (read-once cached, graceful-missing) | `service/engine.mjs` (`serviceToolsDirective`, `couplingMapBlock`); `service/test/service-mode-prompt.test.mjs` |
-| **Phase-timing observability** — `{durationMs, numTurns, model}` in engine result; `[mercury] phase=…` structured log line per completed phase | `service/server.mjs` (`logPhaseTiming`); `service/engine.mjs` (runPhase return) |
-| **Per-seat model/effort split** — `MERCURY_AGENT_MODEL_DECOMPOSE`/`_GROOM`, `_EFFORT_DECOMPOSE`/`_GROOM`, fallback to shared then built-in defaults, omitted-kind → GROOM (fail-strong) | `service/engine.mjs` (`seatConfig`); `service/test/sandbox-env.test.mjs` |
+| **Phase-timing observability** — `{durationMs, numTurns, model}` in engine result; `[radsvinn] phase=…` structured log line per completed phase | `service/server.mjs` (`logPhaseTiming`); `service/engine.mjs` (runPhase return) |
+| **Per-seat model/effort split** — `RADSVINN_AGENT_MODEL_DECOMPOSE`/`_GROOM`, `_EFFORT_DECOMPOSE`/`_GROOM`, fallback to shared then built-in defaults, omitted-kind → GROOM (fail-strong) | `service/engine.mjs` (`seatConfig`); `service/test/sandbox-env.test.mjs` |
 | **Cloud deployment** — surface persistence (Window A/B), Railway container layer (supervisor, fail-closed API-auth/token-file boot posture, spend mutex, child-environment credential stripping), fetch-before-plan, `deploy/entrypoint.mjs` + `Dockerfile` + `railway.json` | `service/slack.mjs`, `service/supervise.mjs`, `service/grounding.mjs`, `service/breakers.mjs`, `deploy/` |
 | **Product-feedback r1** — wizard scope+language+grounding radios, attach-to-epic (GET-verify-before-write, `attached_epic` outside `created[]`), `proseToADF` structured Jira rendering, Unicode-aware duplicate search, project-agnostic Jira-key shape at tool + Go gate | `service/slack.mjs`, `tools/create-tree.mjs`, `service/server.mjs` (`searchTerms`), `internal/checks/precheck.go` (`jiraKeyRE`) |
 | **Self-explaining gate failures** — sizing×scope collision copy removed (leaf cap demoted to advisory WARN); `firstFailingComplaint` leads with the actual hard complaint, skips WARNs | `service/server.mjs` (`describeSkeletonGateFailure`, `describePlanGateFailure`); `service/test/gate-failure-message.test.mjs` |
@@ -38,7 +38,7 @@ tracks do not re-claim them as TODO — a stranger reading this should be able t
 
 ## The generalization refactors (Track B backbone)
 
-These seven refactors are the spine of making Mercury organization-independent. Each unblocks
+These seven refactors are the spine of making Radsvinn organization-independent. Each unblocks
 the next; the first three are the keystone — nothing downstream is clean until the vocabulary
 is de-welded from any one organization.
 
@@ -148,7 +148,7 @@ refactor itself; expose the tracker target in the read model.
 ## The trap to avoid
 
 The most expensive mistake available is building **multi-tenant SaaS scaffolding** (tenant ids,
-a relational store, billing, SSO) *before* a design partner has pulled for it. Mercury's
+a relational store, billing, SSO) *before* a design partner has pulled for it. Radsvinn's
 nature — deep private-repo and tracker access, a hand-built coupling topology, real per-plan
 cost — points at **design-partner-first on a self-hostable open-core base**, not frictionless
 self-serve. Configurable single-tenant (R1–R6) is most of the value; earn multi-tenancy with

@@ -1,6 +1,6 @@
 # Keep the image to what the running service needs. fixtures/ is KEPT (the
 # fake engine reads fixtures/e2e-sample — cheap, and lets an operator smoke
-# the container with MERCURY_ENGINE=fake). prompts/, .claude/, tools/,
+# the container with RADSVINN_ENGINE=fake). prompts/, .claude/, tools/,
 # contracts/, coupling-map.yaml all ride in via COPY . .
 
 # never bake VCS state, internal agent/session artifacts, or local outputs in

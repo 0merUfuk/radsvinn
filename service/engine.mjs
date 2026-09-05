@@ -10,11 +10,13 @@
 // and local fakes; they do not invoke an external agent CLI, provider,
 // tracker, Slack socket, or remote-grounding network.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
+import { sandboxedEnv, redactSecrets } from '../dashboard/lib/child-env.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { MERCURY_ROOT } from './state.mjs';
+import { RADSVINN_ROOT } from './state.mjs';
 import { reposRoot } from './grounding.mjs';
 import { resolveCouplingMapPath } from './coupling-map.mjs';
 import { buildClaudeArgs as buildClaudeRuntimeArgs } from './runtimes/claude.mjs';
@@ -27,8 +29,8 @@ import {
   startOpenRouterMeterProxy,
 } from './openrouter-meter.mjs';
 
-const FIXTURE_SKELETON = path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json');
-const FIXTURE_PLAN = path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'plan.json');
+const FIXTURE_SKELETON = path.join(RADSVINN_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json');
+const FIXTURE_PLAN = path.join(RADSVINN_ROOT, 'fixtures', 'e2e-sample', 'plan.json');
 
 // Single source of truth for the per-plan create record's filename — BOTH
 // engines write <runDir>/created-record.json, and server.mjs's retry guard
@@ -98,12 +100,12 @@ function createFakeEngine(env) {
       return { sessionId: `fake-${randomUUID()}`, costUsd: 0.8, resultText: '[fake] shape presented', durationMs: 0, numTurns: 1, model: 'fake' };
     },
     async groom({ runDir, sessionId }) {
-      if (env.MERCURY_FAKE_GROOM_FAIL === '1') {
+      if (readEnv('RADSVINN_FAKE_GROOM_FAIL', env) === '1') {
         // Simulate the pilot's real failure: groom dies mid-flight (API
         // balance ran out) — skeleton.json is on disk, plan.json is not.
         throw new Error('[fake] groom failed — API balance exhausted');
       }
-      if (env.MERCURY_FAKE_GROOM_TRUNCATED === '1') {
+      if (readEnv('RADSVINN_FAKE_GROOM_TRUNCATED', env) === '1') {
         // B5 fail-closed knob: groom hit the light `--max-turns` cap mid-write.
         // Claude Code exits non-zero when the agentic loop is truncated, so the
         // real engine's runClaudeSpawn REJECTS — model that here as a throw
@@ -123,11 +125,11 @@ function createFakeEngine(env) {
       // Same last-line guard as the real engine — the fake must refuse to
       // "re-create" over an existing tree's record exactly like the real one.
       guardExistingRecord(recordPath);
-      if (env.MERCURY_FAKE_CREATE_FAIL === '1') {
+      if (readEnv('RADSVINN_FAKE_CREATE_FAIL', env) === '1') {
         // Models create-tree dying with NO record on disk — post-WAL that
         // means before runLive's try even starts (e.g. the pre-try GET
         // /project resolution, or a missing token) — contrast
-        // MERCURY_FAKE_CREATE_PARTIAL below. The message must NOT direct an
+        // RADSVINN_FAKE_CREATE_PARTIAL below. The message must NOT direct an
         // operator at a record/--cleanup for a record that does not exist.
         throw new Error('[fake] live create failed before any record was written');
       }
@@ -136,7 +138,7 @@ function createFakeEngine(env) {
       // service-level tests can prove the wire — a plan.json whose epic
       // carries existing_key produces a record with `attached_epic` set and
       // NO Epic entry in created[] (cleanup/cancel sweep created[] only and
-      // must never transition an epic Mercury did not create). Deliberately
+      // must never transition an epic Radsvinn did not create). Deliberately
       // cheap: read + branch; the fake still fabricates keys as ever. The
       // pre-fix fake never read plan.json at all, so a missing/unreadable
       // one stays non-fatal here (unlike the real engine, which requires
@@ -154,7 +156,7 @@ function createFakeEngine(env) {
       const record = attachedEpic
         ? { created: [{ temp_id: 'i1', key: 'PROJ-1000', type: 'Task', summary: 'fake' }], links: [], attached_epic: attachedEpic }
         : { created: [{ temp_id: 'e1', key: 'PROJ-999', type: 'Epic', summary: 'fake' }], links: [] };
-      if (env.MERCURY_FAKE_CREATE_PARTIAL === '1') {
+      if (readEnv('RADSVINN_FAKE_CREATE_PARTIAL', env) === '1') {
         // Mirrors the real throw-path: create-tree's catch block persists the
         // PARTIAL record to --out before exit 1 (create-tree.mjs runLive), so
         // the fake writes the record FIRST and throws after — one real issue
@@ -171,11 +173,11 @@ function createFakeEngine(env) {
         // attach target. Key absent entirely
         // when not attaching — mirrors the record shape and the real engine.
         ...(attachedEpic ? { attached_epic: attachedEpic } : {}),
-        // MERCURY_FAKE_VERIFY_FAIL drives the "create COMPLETED but the
+        // RADSVINN_FAKE_VERIFY_FAIL drives the "create COMPLETED but the
         // post-create --verify hiccuped" outcome through the normal worker
         // path — runCreateWorker lands that as `failed` WITH plan.created
         // set, which is exactly the retry guard's case-A precondition.
-        verifyOk: env.MERCURY_FAKE_VERIFY_FAIL === '1' ? false : true,
+        verifyOk: readEnv('RADSVINN_FAKE_VERIFY_FAIL', env) === '1' ? false : true,
         costUsd: 0,
         resultText: attachedEpic
           ? `[fake] CREATED Task PROJ-1000 under attached epic ${attachedEpic.key} — record: ${recordPath}`
@@ -183,7 +185,7 @@ function createFakeEngine(env) {
       };
     },
     async verify({ recordPath }) {
-      if (env.MERCURY_FAKE_VERIFY_REJECT === '1') {
+      if (readEnv('RADSVINN_FAKE_VERIFY_REJECT', env) === '1') {
         // Mirrors the REAL engine's only reject path: runToolSpawn REJECTS
         // on spawn failure/timeout (a non-zero exit merely resolves
         // ok:false). The retry guard's handler/worker catches must survive
@@ -191,7 +193,7 @@ function createFakeEngine(env) {
         // why handleRetry plants the marker before anything awaitable.
         throw new Error('[fake] verify spawn failed');
       }
-      if (env.MERCURY_FAKE_VERIFY_FAIL === '1') return { ok: false, output: '[fake] verify failed' };
+      if (readEnv('RADSVINN_FAKE_VERIFY_FAIL', env) === '1') return { ok: false, output: '[fake] verify failed' };
       if (!fs.existsSync(recordPath)) return { ok: false, output: '[fake] record not found' };
       // Mirrors the real --verify, which dies (exit 1) on readJSON over a
       // garbage record — a fake that verified garbage green would diverge
@@ -204,7 +206,7 @@ function createFakeEngine(env) {
       return { ok: true, output: '[fake] verify OK' };
     },
     async cleanup({ recordPath }) {
-      if (env.MERCURY_FAKE_CLEANUP_FAIL === '1') {
+      if (readEnv('RADSVINN_FAKE_CLEANUP_FAIL', env) === '1') {
         // Models a sweep with HARD failures (network down, token revoked,
         // board-wide 429): the real tool counts every transitions-read
         // error and transition-POST failure and exits 1 when any occurred,
@@ -243,7 +245,7 @@ function createRealEngine() {
   // This validates both independent axes without sending provider traffic;
   // the first external request remains the first planning phase.
   const agentRuntime = resolveRuntime();
-  // Codex owns its OpenAI OAuth/provider path, so MERCURY_LLM_PROVIDER is
+  // Codex owns its OpenAI OAuth/provider path, so RADSVINN_LLM_PROVIDER is
   // intentionally irrelevant outside provider-configurable runtimes.
   const providerRuntime = agentRuntime.id === 'claude'
     ? resolveLlmRuntime()
@@ -394,7 +396,7 @@ function createRealEngine() {
 function runToolSpawn(args, timeoutMs) {
   return new Promise((resolve, reject) => {
     const child = spawn(args[0], args.slice(1), {
-      cwd: MERCURY_ROOT,
+      cwd: RADSVINN_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -418,7 +420,7 @@ function runToolSpawn(args, timeoutMs) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ code, stdout, stderr });
+      resolve({ code, stdout: redactSecrets(stdout), stderr: redactSecrets(stderr) });
     });
   });
 }
@@ -561,7 +563,7 @@ function groomGroundingDirective(groundingHint) {
 // no --allowedTools flag at all (CLI defaults apply) — also inject nothing
 // rather than claim "no tools".
 function resolvedAllowedTools() {
-  return (process.env.MERCURY_AGENT_ALLOWED_TOOLS ?? 'Read,Grep,Glob')
+  return (readEnv('RADSVINN_AGENT_ALLOWED_TOOLS') ?? 'Read,Grep,Glob')
     .split(',').map((t) => t.trim()).filter(Boolean);
 }
 
@@ -602,8 +604,8 @@ function serviceToolsDirective() {
 // implausibly oversized → a graceful fallback note, NEVER a throw (a laptop
 // or test checkout without the file must still plan); the miss is cached
 // too — re-probing a missing file once per plan buys nothing.
-// MERCURY_COUPLING_MAP overrides the path (absolute, or resolved against
-// the mercury repo root) — an operational knob and the unit-test seam.
+// RADSVINN_COUPLING_MAP overrides the path (absolute, or resolved against
+// the radsvinn repo root) — an operational knob and the unit-test seam.
 const COUPLING_MAP_MAX_BYTES = 128 * 1024; // ~10x today's map — a runaway file must never multiply every plan's prompt spend
 const couplingMapCache = new Map(); // resolved path -> file text | null (null = degrade to the fallback note)
 
@@ -700,7 +702,7 @@ export function phase1Message({ ask, requester, roleLens, runDir, outputLanguage
   const toolsDirective = serviceToolsDirective();
   const safePosture = toolsDirective.length > 0;
   return [
-    loadPromptBody(path.join(MERCURY_ROOT, 'prompts', 'decomposer.md')),
+    loadPromptBody(path.join(RADSVINN_ROOT, 'prompts', 'decomposer.md')),
     '',
     // The prompts honor `# OUTPUT LANGUAGE` (en|tr|both, default en). Injected
     // immediately after the role body so it governs all prose the agent emits;
@@ -773,7 +775,7 @@ export function groomMessage({ edited, runDir, outputLanguage, groundingHint, re
   const safePosture = toolsDirective.length > 0;
   const editNote = edited ? ' (service applied human edits to skeleton.json — re-read it)' : '';
   return [
-    loadPromptBody(path.join(MERCURY_ROOT, 'prompts', 'groomer.md')),
+    loadPromptBody(path.join(RADSVINN_ROOT, 'prompts', 'groomer.md')),
     '',
     '# OUTPUT LANGUAGE',
     outputLanguage || 'en',
@@ -833,8 +835,8 @@ export function groomMessage({ edited, runDir, outputLanguage, groundingHint, re
 // and the coupling-zone routing (expensive to be wrong: it is what the create
 // gate approves). So the decompose seat may run a cheaper/faster model while
 // groom keeps the strongest one. Resolution order per seat:
-//   MERCURY_AGENT_MODEL_DECOMPOSE / _GROOM   (seat-specific override)
-//   MERCURY_AGENT_MODEL                       (shared override — unchanged
+//   RADSVINN_AGENT_MODEL_DECOMPOSE / _GROOM   (seat-specific override)
+//   RADSVINN_AGENT_MODEL                       (shared override — unchanged
 //                                              behavior for existing deploys)
 //   'opus'                                    (the built-in model/effort default)
 // Same ladder for effort (_EFFORT_DECOMPOSE / _EFFORT_GROOM / _EFFORT /
@@ -845,8 +847,8 @@ function seatConfig(kind) {
   const env = process.env;
   const seat = kind === 'phase1' ? 'DECOMPOSE' : 'GROOM';
   return {
-    model: env[`MERCURY_AGENT_MODEL_${seat}`] || env.MERCURY_AGENT_MODEL || 'opus',
-    effort: env[`MERCURY_AGENT_EFFORT_${seat}`] || env.MERCURY_AGENT_EFFORT || 'xhigh',
+    model: readEnv(`RADSVINN_AGENT_MODEL_${seat}`, env) || readEnv('RADSVINN_AGENT_MODEL', env) || 'opus',
+    effort: readEnv(`RADSVINN_AGENT_EFFORT_${seat}`, env) || readEnv('RADSVINN_AGENT_EFFORT', env) || 'xhigh',
   };
 }
 
@@ -858,7 +860,7 @@ function seatConfig(kind) {
 // query pipeline). Sanitized: any non-positive/non-integer override falls
 // back to the default rather than passing garbage to the CLI.
 function lightMaxTurns() {
-  const raw = Number(process.env.MERCURY_LIGHT_MAX_TURNS);
+  const raw = Number(readEnv('RADSVINN_LIGHT_MAX_TURNS'));
   return Number.isInteger(raw) && raw > 0 ? raw : 12;
 }
 
@@ -874,12 +876,12 @@ function lightMaxTurns() {
 // turns, and the deterministic gate — not the cap — is what fails a truncated
 // artifact closed.
 function lightGroomBaseTurns() {
-  const raw = Number(process.env.MERCURY_LIGHT_GROOM_BASE_TURNS);
+  const raw = Number(readEnv('RADSVINN_LIGHT_GROOM_BASE_TURNS'));
   return Number.isInteger(raw) && raw > 0 ? raw : 6;
 }
 
 function lightGroomPerItemTurns() {
-  const raw = Number(process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS);
+  const raw = Number(readEnv('RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS'));
   return Number.isInteger(raw) && raw > 0 ? raw : 4;
 }
 
@@ -918,34 +920,7 @@ export function buildClaudeArgs({ userMessage, sessionId, resume, kind = 'groom'
 // even if the sandbox posture drifts. create-tree.mjs children
 // (control-plane spawns) inherit the full service env separately and
 // resolve the Jira token themselves. Exported as the unit-test seam.
-const SANDBOX_STRIP_KEYS = [
-  'MERCURY_JIRA_TOKEN',
-  'SLACK_APP_TOKEN',
-  'SLACK_BOT_TOKEN',
-  'MERCURY_SERVICE_TOKEN',
-  'MERCURY_SERVICE_TOKEN_DASHBOARD',
-  'GITHUB_TOKEN',
-  'GH_TOKEN',
-  // A staged OpenRouter credential is never useful to the Claude child — the
-  // per-phase proxy is the only permitted egress path.  Strip these even
-  // while the default Anthropic provider is active, so an operator cannot
-  // accidentally leak a future migration secret through a direct child.
-  'MERCURY_OPENROUTER_API_KEY',
-  'OPENROUTER_API_KEY',
-];
-
-export function sandboxedEnv(env) {
-  const out = { ...env };
-  for (const key of SANDBOX_STRIP_KEYS) delete out[key];
-  for (const key of Object.keys(out)) {
-    // Whole families go by PREFIX so a future addition (SLACK_SIGNING_SECRET,
-    // SLACK_WEBHOOK_URL, a new RAILWAY_* metadata key) can never leak by
-    // omission; the explicit SLACK_* entries in SANDBOX_STRIP_KEYS stay as
-    // documentation + belt-and-suspenders.
-    if (key.startsWith('RAILWAY_') || key.startsWith('SLACK_')) delete out[key];
-  }
-  return out;
-}
+export { sandboxedEnv } from '../dashboard/lib/child-env.mjs';
 
 async function runMeteredOpenRouterSpawn({ runSpawn }, runtime) {
   const proxy = await startOpenRouterMeterProxy({ sourceKey: runtime.apiKey });
@@ -1052,7 +1027,7 @@ async function runPhase({
       seat,
       maxTurns,
       groundingRoot: reposRoot(),
-      repoRoot: MERCURY_ROOT,
+      repoRoot: RADSVINN_ROOT,
       childEnv: sandboxedEnv(process.env),
       // OpenRouter's child environment maps Claude's stable seat aliases to
       // one exact provider slug. Ignore inherited model overrides on this path.

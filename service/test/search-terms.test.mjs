@@ -53,12 +53,12 @@ test('searchTerms: the ~6-significant-words shape is unchanged — punctuation s
 // Boots a server with a capture engine over the fake — records what
 // engine.search receives, exactly as the real engine would.
 async function startCaptureServer(t) {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-search-seed-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-search-seed-'));
   // These fake-mode wire tests do not seed grounding repositories, so use the
   // fake-only whole-plan-gate skip (set/restore locally so the file passes
   // standalone too).
-  const prevSkip = process.env.MERCURY_SKIP_PLAN_ANCHORS;
-  process.env.MERCURY_SKIP_PLAN_ANCHORS = '1';
+  const prevSkip = process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+  process.env.RADSVINN_SKIP_PLAN_ANCHORS = '1';
 
   const fake = createEngine('fake');
   const searchCalls = [];
@@ -73,8 +73,8 @@ async function startCaptureServer(t) {
   const addr = await app.listen(0, '127.0.0.1');
   t.after(async () => {
     await app.close();
-    if (prevSkip === undefined) delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
-    else process.env.MERCURY_SKIP_PLAN_ANCHORS = prevSkip;
+    if (prevSkip === undefined) delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+    else process.env.RADSVINN_SKIP_PLAN_ANCHORS = prevSkip;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
   return { baseUrl: `http://127.0.0.1:${addr.port}`, searchCalls };

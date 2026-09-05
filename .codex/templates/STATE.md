@@ -1,4 +1,4 @@
-# Mercury State Template
+# Radsvinn State Template
 
 Starting shape for per-initiative state files in `tasks/{slug}/`.
 

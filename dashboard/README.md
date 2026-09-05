@@ -1,6 +1,6 @@
-# Mercury Dashboard — the web review surface
+# Radsvinn Dashboard — the web review surface
 
-An optional public web surface for reviewing and approving Mercury plans, sitting in front of
+An optional public web surface for reviewing and approving Radsvinn plans, sitting in front of
 the loopback-only planner API. It is a **backend-for-frontend (BFF)**: the browser only ever
 talks to this server's same-origin `/api/*` surface; the planner's service token never reaches
 the page. Authentication is **GitHub OAuth** scoped to your organization; authorization is
@@ -81,8 +81,8 @@ organization defaults** — you supply your own GitHub org.
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `8080` | Listen port (this is the public container) |
-| `MERCURY_PLANNER_URL` | *(required)* | Base URL of the planner over your private mesh |
-| `MERCURY_SERVICE_TOKEN_DASHBOARD` | *(required)* | Bearer token to the planner; a blank value fails boot (it cannot authenticate) |
+| `RADSVINN_PLANNER_URL` | *(required)* | Base URL of the planner over your private mesh |
+| `RADSVINN_SERVICE_TOKEN_DASHBOARD` | *(required)* | Bearer token to the planner; a blank value fails boot (it cannot authenticate) |
 | `DASH_GITHUB_CLIENT_ID` | *(required)* | Your GitHub OAuth app client id |
 | `DASH_GITHUB_CLIENT_SECRET` | *(required)* | Your GitHub OAuth app client secret |
 | `DASH_SESSION_SECRET` | *(required, ≥ 32 chars)* | Session signing secret — `openssl rand -hex 32` |
@@ -97,7 +97,7 @@ organization defaults** — you supply your own GitHub org.
 | `DASH_GITHUB_OAUTH_BASE` | `https://github.com` | Test seam — the OAuth authorize/token host |
 | `NODE_ENV` | `production` | `production` enforces the `https://` origin rule |
 
-The three `DASH_TEAM_*` slugs default to Mercury-branded team names — create those teams in your
+The three `DASH_TEAM_*` slugs retain legacy team names for authorization compatibility — create those teams in your
 org, or point the variables at teams you already have. The GitHub OAuth app's callback URL must
 be `${DASH_PUBLIC_ORIGIN}` + the OAuth callback path.
 
@@ -106,7 +106,7 @@ be `${DASH_PUBLIC_ORIGIN}` + the OAuth callback path.
 ## Boot
 
 ```bash
-# with the planner reachable at MERCURY_PLANNER_URL over the private mesh
+# with the planner reachable at RADSVINN_PLANNER_URL over the private mesh
 node dashboard/server.mjs
 # validateConfig prints every missing/unsafe var and exits non-zero if any remain
 ```

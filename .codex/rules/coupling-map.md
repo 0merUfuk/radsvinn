@@ -1,6 +1,6 @@
 # Coupling Map (Codex)
 
-The coupling map is Mercury's safety ground truth.
+The coupling map is Radsvinn's safety ground truth.
 
 Invariants:
 1. The map is per-instance, never baked into the engine.

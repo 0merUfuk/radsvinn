@@ -30,7 +30,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import {
   loadConfig, loadJson, writeJson, buildTreecheck, runTreecheck,
-  verdictFor, applyVerdictFloors, parseArgs, safeKey, HARNESS_DIR, MERCURY_ROOT,
+  verdictFor, applyVerdictFloors, parseArgs, safeKey, HARNESS_DIR, RADSVINN_ROOT,
 } from './lib.mjs';
 
 const CONTRACT_REASON = 'plan failed the deterministic contract gate (treecheck could not parse the plan)';
@@ -204,12 +204,12 @@ function main() {
     process.exit(2);
   }
 
-  // Resolve the run dir against cwd, the harness dir, and the mercury root
+  // Resolve the run dir against cwd, the harness dir, and the radsvinn root
   // (same resolution order as run-calibration --rejudge).
   const cands = [
     path.isAbsolute(target) ? target : path.resolve(process.cwd(), target),
     path.resolve(HARNESS_DIR, target),
-    path.resolve(MERCURY_ROOT, target),
+    path.resolve(RADSVINN_ROOT, target),
   ];
   const runDir = cands.find((c) => fs.existsSync(c) && fs.statSync(c).isDirectory());
   if (!runDir) {

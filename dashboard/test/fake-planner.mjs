@@ -1,4 +1,4 @@
-// test/fake-planner.mjs — a recording node:http stand-in for the Mercury
+// test/fake-planner.mjs — a recording node:http stand-in for the Radsvinn
 // planner (main + assumed-shipped PR A shape). Records every request so
 // tests can assert what the BFF forwarded (actor shape, confirm strings,
 // query passthrough) and — critically for the RBAC matrix — assert it was

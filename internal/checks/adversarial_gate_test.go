@@ -1,7 +1,7 @@
 package checks
 
 // Adversarial edge-case matrix for the A1/A2/A3 non-blocking gate additions
-// (fix/mercury-gate-correctness). Independently re-derives properties the
+// (fix/radsvinn-gate-correctness). Independently re-derives properties the
 // developer's checks_test.go already exercises, and closes gaps the roadmap
 // calls out explicitly: FooBar/foobar case-direction, in-item anchor
 // self-citation dedup, 3-way anchor_consistency attribution, the

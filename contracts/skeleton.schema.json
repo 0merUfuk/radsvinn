@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/0merUfuk/mercury/contracts/skeleton.schema.json",
-  "title": "Mercury Break-Down skeleton (Phase 1 output)",
+  "title": "Radsvinn Break-Down skeleton (Phase 1 output)",
   "description": "The structural skeleton emitted by the Decomposer: ticket shape and sequencing, before the Groomer writes full ticket content.",
   "type": "object",
   "required": ["plan_id", "requester", "mode", "epic", "milestones", "items"],

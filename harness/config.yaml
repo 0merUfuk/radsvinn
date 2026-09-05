@@ -1,5 +1,5 @@
 models:
-  # Mercury model policy: use the strongest reasoning model for planning.
+  # Radsvinn model policy: use the strongest reasoning model for planning.
   # Generator == the jira-planner role (opus), so
   # calibration measures the planner we actually ship. Judge = same model by DELIBERATE
   # choice — judge != generator holds via context isolation (separate process, fresh

@@ -1,8 +1,8 @@
-# Mercury
+# Radsvinn
 
 **A coupling-aware AI planner that turns a plain-language request into a validated ticket tree — without ever letting the LLM write your tracker.**
 
-Mercury reads your work request ("add prompt-text search to the history view"), grounds
+Radsvinn reads your work request ("add prompt-text search to the history view"), grounds
 itself in your actual codebase, and produces a well-formed tree of Jira tickets: an epic,
 its stories, their sub-tasks — each with a why, a definition of done, acceptance criteria,
 and verified code anchors. It knows which changes are *coupled* (a database column three
@@ -14,9 +14,9 @@ no-LLM tool write to your tracker. That separation is the whole point.
 
 ---
 
-## Why Mercury is different
+## Why Radsvinn is different
 
-Most "AI ticket writers" hand an LLM your request and trust whatever it emits. Mercury
+Most "AI ticket writers" hand an LLM your request and trust whatever it emits. Radsvinn
 wraps a single planning agent in a **deterministic control plane** and brackets it with
 **two human approval gates**:
 
@@ -77,7 +77,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full component and data
 
 **A real plan tree in five minutes, with zero organization configuration**
 
-Mercury ships a deterministic **fake-mode demo** that replays known-good fixtures through
+Radsvinn ships a deterministic **fake-mode demo** that replays known-good fixtures through
 the production HTTP handlers and state machine. It exercises both real Go gates, both human
 actions, persistence, and spend breakers. For anchor validation it creates temporary local
 Git repositories with `origin/main` refs. The walkthrough itself opens only loopback HTTP and
@@ -99,7 +99,11 @@ To understand the v0.1.0 live-mode boundary and connect a compatible organizatio
 
 ## Configuration surface
 
-Mercury is env-driven. Service boot fails closed for unsafe planner-API authentication and can
+Upgrading an existing installation? Read the
+[identity migration guide](docs/IDENTITY-MIGRATION.md) for alias precedence,
+retained contracts, and rollback behavior.
+
+Radsvinn is env-driven. Service boot fails closed for unsafe planner-API authentication and can
 enforce an env-only Jira-token posture. Tracker credentials and the live target are consumed
 and validated by the deterministic writer at its network-operation boundary: the Cloud ID and
 token have no live fallback, while the project and site have clearly-example defaults that a
@@ -109,17 +113,17 @@ R1/R2. The core knobs:
 
 | Variable | Required? | Example | Meaning |
 |---|---|---|---|
-| `MERCURY_JIRA_SITE_URL` | recommended (live) | `https://your-domain.atlassian.net` | Your Jira site; the placeholder fallback only produces placeholder browse links |
-| `MERCURY_JIRA_CLOUD_ID` | yes (live) | *(no default — fails clearly if unset)* | Your Atlassian Cloud ID; the tracker write target |
-| `MERCURY_JIRA_PROJECT` | no | `PROJ` | Jira project key the tree is created under |
-| `MERCURY_JIRA_TOKEN` | yes (live) | *(env / secrets; local file fallback only)* | Jira API token used by the writer — use env-only posture on servers |
-| `MERCURY_GROUNDING_ORG` | yes (grounding) | `example-org` | The VCS org that owns your grounding repositories |
-| `MERCURY_GROUNDING_REPOS` | no | `web-app,api-service,worker-service,shared-lib` | Additive physical deployment clone list; defaults to the four seed repos. The fifth accepted plan value, `cross-repo-lockstep`, is a routing marker and is never cloned (legacy env entries are ignored) |
-| `MERCURY_COUPLING_MAP` | no | `coupling-map.yaml` | Path used by both the planner prompt and deterministic plan gate (an empty map is legal but degraded: it provides no coupling-zone enforcement) |
-| `MERCURY_LLM_PROVIDER` | no | `anthropic` | Selects `anthropic` or `openrouter`; setting a provider key alone does not switch providers |
+| `RADSVINN_JIRA_SITE_URL` | recommended (live) | `https://your-domain.atlassian.net` | Your Jira site; the placeholder fallback only produces placeholder browse links |
+| `RADSVINN_JIRA_CLOUD_ID` | yes (live) | *(no default — fails clearly if unset)* | Your Atlassian Cloud ID; the tracker write target |
+| `RADSVINN_JIRA_PROJECT` | no | `PROJ` | Jira project key the tree is created under |
+| `RADSVINN_JIRA_TOKEN` | yes (live) | *(env / secrets; local file fallback only)* | Jira API token used by the writer — use env-only posture on servers |
+| `RADSVINN_GROUNDING_ORG` | yes (grounding) | `example-org` | The VCS org that owns your grounding repositories |
+| `RADSVINN_GROUNDING_REPOS` | no | `web-app,api-service,worker-service,shared-lib` | Additive physical deployment clone list; defaults to the four seed repos. The fifth accepted plan value, `cross-repo-lockstep`, is a routing marker and is never cloned (legacy env entries are ignored) |
+| `RADSVINN_COUPLING_MAP` | no | `coupling-map.yaml` | Path used by both the planner prompt and deterministic plan gate (an empty map is legal but degraded: it provides no coupling-zone enforcement) |
+| `RADSVINN_LLM_PROVIDER` | no | `anthropic` | Selects `anthropic` or `openrouter`; setting a provider key alone does not switch providers |
 | `ANTHROPIC_API_KEY` | yes (Anthropic live) | *(env / secrets only)* | Default provider key (bring your own) |
-| `MERCURY_OPENROUTER_API_KEY` | yes (OpenRouter live) | *(env / secrets only)* | Required when `MERCURY_LLM_PROVIDER=openrouter` |
-| `MERCURY_ENGINE` | no | `fake` | `fake` runs the demo engine; anything else uses the real agent |
+| `RADSVINN_OPENROUTER_API_KEY` | yes (OpenRouter live) | *(env / secrets only)* | Required when `RADSVINN_LLM_PROVIDER=openrouter` |
+| `RADSVINN_ENGINE` | no | `fake` | `fake` runs the demo engine; anything else uses the real agent |
 
 The full env table (planner + Slack bridge + dashboard) lives in
 [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) and in each service's own README.
@@ -128,7 +132,7 @@ The full env table (planner + Slack bridge + dashboard) lives in
 
 ## The safety model, stated plainly
 
-These are invariants, not preferences — the reasons Mercury can be trusted with real work:
+These are invariants, not preferences — the reasons Radsvinn can be trusted with real work:
 
 1. **The LLM never writes your tracker.** Creation is a deterministic tool operating on a
    human-approved plan. No model output reaches your board unreviewed.

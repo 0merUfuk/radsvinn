@@ -1,3 +1,4 @@
+import { redactSecrets } from '../dashboard/lib/child-env.mjs';
 // server.mjs — the POST /plan planner service HTTP API.
 //
 // Boot: `node service/server.mjs` (see service/README.md for the full env
@@ -23,6 +24,7 @@
 //     cancel-only, never delete (see handleCancel / runCancelWorker).
 // Any request that doesn't match a legal transition gets 409 {error, status}.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -30,7 +32,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { State, resultsDir, agentRunDir, MERCURY_ROOT } from './state.mjs';
+import { State, resultsDir, agentRunDir, RADSVINN_ROOT } from './state.mjs';
 import { createEngine, CREATED_RECORD_FILENAME } from './engine.mjs';
 import { gateSkeleton, gatePlan } from './gates.mjs';
 import { fetchGroundingRepos } from './grounding.mjs';
@@ -172,7 +174,7 @@ function publicWorkerError(err) {
 function errMsg(err) {
   const msg = err && err.message ? err.message : String(err);
   // Don't leak absolute server paths to API clients.
-  return msg.split(MERCURY_ROOT).join('.');
+  return redactSecrets(msg).split(RADSVINN_ROOT).join('.');
 }
 
 // Phase-timing observability (2026-07-11): one structured stderr line per
@@ -187,7 +189,7 @@ function errMsg(err) {
 function logPhaseTiming(phase, plan, result) {
   const id8 = String(plan.plan_id || '').slice(0, 8);
   console.error(
-    `[mercury] phase=${phase} plan=${id8} model=${result.model ?? '?'} grounding=${plan.grounding_hint || 'full'} turns=${result.numTurns ?? '?'} duration_ms=${result.durationMs ?? '?'} cost_usd=${typeof result.costUsd === 'number' ? result.costUsd : '?'}`,
+    `[radsvinn] phase=${phase} plan=${id8} model=${result.model ?? '?'} grounding=${plan.grounding_hint || 'full'} turns=${result.numTurns ?? '?'} duration_ms=${result.durationMs ?? '?'} cost_usd=${typeof result.costUsd === 'number' ? result.costUsd : '?'}`,
   );
 }
 
@@ -323,7 +325,7 @@ function readJsonIfExists(p) {
 
 function gateSummary(gate) {
   if (gate.skipped) {
-    return 'skipped (fake-mode MERCURY_SKIP_PLAN_ANCHORS=1; entire plan gate not run)';
+    return 'skipped (fake-mode RADSVINN_SKIP_PLAN_ANCHORS=1; entire plan gate not run)';
   }
   try {
     return JSON.stringify(gate.raw).slice(0, 500);
@@ -428,7 +430,7 @@ function clampReason(reason) {
 // complaint instead of the old, now-wrong "oversized ticket" copy.
 export function describeSkeletonGateFailure(gate, plan) { // eslint-disable-line no-unused-vars -- plan kept for call-site/signature symmetry with the old sizing×scope branch
   // Operators/logs only — never returned to the user surface.
-  console.error(`[mercury] skeleton gate failed (server-side re-verification): ${gateSummary(gate)}`);
+  console.error(`[radsvinn] skeleton gate failed (server-side re-verification): ${gateSummary(gate)}`);
   try {
     // Contract hard-fail (malformed JSON, wrong/unknown keys, missing required
     // fields) — the class the owner hit. treecheck collapses it to a single
@@ -437,18 +439,18 @@ export function describeSkeletonGateFailure(gate, plan) { // eslint-disable-line
       && gate.raw.checks.contract_valid && gate.raw.checks.contract_valid.pass === false;
     if (contractFailed) {
       const reason = firstFailingComplaint(gate) || 'the draft did not match the required ticket skeleton';
-      return `Mercury's draft didn't match the required ticket shape (a contract error: ${clampReason(reason)}). Retry re-plans from scratch.`;
+      return `Radsvinn's draft didn't match the required ticket shape (a contract error: ${clampReason(reason)}). Retry re-plans from scratch.`;
     }
 
     // Any other structural hard fail (acyclic, hierarchy, ordering, a sizing
     // safety violation, …): lead with the FIRST failing check's complaint.
     const first = firstFailingComplaint(gate);
     if (first) {
-      return `Mercury's draft failed a required structural check: ${clampReason(first)}. Retry re-plans from scratch.`;
+      return `Radsvinn's draft failed a required structural check: ${clampReason(first)}. Retry re-plans from scratch.`;
     }
-    return 'Mercury\'s draft failed server-side re-verification. Retry re-plans from scratch.';
+    return 'Radsvinn\'s draft failed server-side re-verification. Retry re-plans from scratch.';
   } catch {
-    return 'Mercury\'s draft failed server-side re-verification. Retry re-plans from scratch.';
+    return 'Radsvinn\'s draft failed server-side re-verification. Retry re-plans from scratch.';
   }
 }
 
@@ -461,7 +463,7 @@ export function describeSkeletonGateFailure(gate, plan) { // eslint-disable-line
 // surfacing rule, both gates.
 export function describePlanGateFailure(gate) {
   // Operators/logs only — never returned to the user surface.
-  console.error(`[mercury] plan gate failed (server-side re-verification): ${gateSummary(gate)}`);
+  console.error(`[radsvinn] plan gate failed (server-side re-verification): ${gateSummary(gate)}`);
   try {
     const first = firstFailingComplaint(gate);
     if (!first) return 'A ticket failed server-side re-verification. Retry re-plans from scratch.';
@@ -555,7 +557,7 @@ function toPublicView(plan) {
     surface: plan.surface,
     announced_status: plan.announced_status,
     // fetch-before-plan: the fetch-before-plan result ({ok, detail?}) — absent when
-    // MERCURY_FETCH_BEFORE_PLAN is off or on legacy plans. Surfaces the
+    // RADSVINN_FETCH_BEFORE_PLAN is off or on legacy plans. Surfaces the
     // stale-anchors degradation at every client.
     grounding: plan.grounding,
   };
@@ -652,22 +654,22 @@ function matchRoute(method, segments) {
 export function createServer(options = {}) {
   // Snapshot the results root ONCE, synchronously, before anything async can
   // touch process.env — every worker below closes over this same value
-  // instead of re-reading MERCURY_RESULTS_DIR later (see state.mjs's file
+  // instead of re-reading RADSVINN_RESULTS_DIR later (see state.mjs's file
   // header for why: a fire-and-forget worker outliving its HTTP response
   // must not be redirectable by some *other* concurrent test/request
   // resetting that env var out from under it).
   const resultsRoot = options.resultsDir || resultsDir();
   const state = options.state || new State(resultsRoot);
-  const engineMode = options.engineMode || (process.env.MERCURY_ENGINE === 'fake' ? 'fake' : 'real');
+  const engineMode = options.engineMode || (readEnv('RADSVINN_ENGINE') === 'fake' ? 'fake' : 'real');
   // This legacy knob is misleadingly named: it skips the ENTIRE plan gate,
   // not only anchor checks. It exists solely for fake-engine tests that do not
   // seed grounding repositories. A live engine must never turn deterministic
   // validation into `{ok:true,skipped:true}`, even when a custom gate is
   // injected, so reject the configuration before the server is constructed.
-  const skipPlanGate = process.env.MERCURY_SKIP_PLAN_ANCHORS === '1';
+  const skipPlanGate = readEnv('RADSVINN_SKIP_PLAN_ANCHORS') === '1';
   if (skipPlanGate && engineMode !== 'fake') {
     throw new Error(
-      'MERCURY_SKIP_PLAN_ANCHORS=1 skips the entire plan gate and is allowed only with MERCURY_ENGINE=fake; refusing to construct a real planner service',
+      'RADSVINN_SKIP_PLAN_ANCHORS=1 skips the entire plan gate and is allowed only with RADSVINN_ENGINE=fake; refusing to construct a real planner service',
     );
   }
   const engine = options.engine || createEngine(engineMode);
@@ -679,16 +681,16 @@ export function createServer(options = {}) {
     : { ...options.breakerEnv };
   // Test/demo seam only: production callers keep the real fetch-before-plan
   // implementation. The fake demo injects a no-op so an inherited
-  // MERCURY_FETCH_BEFORE_PLAN=1 cannot trigger a remote-grounding fetch.
+  // RADSVINN_FETCH_BEFORE_PLAN=1 cannot trigger a remote-grounding fetch.
   const fetchGrounding = options.fetchGroundingRepos || fetchGroundingRepos;
   // Test seams only; production callers supply no overrides and retain the
   // deterministic Go gates imported above.
   const skeletonGate = options.gateSkeleton || gateSkeleton;
   const planGate = options.gatePlan
     || ((runDir) => gatePlan(runDir, { skipPlanGate }));
-  const token = options.token !== undefined ? options.token : process.env.MERCURY_SERVICE_TOKEN;
+  const token = options.token !== undefined ? options.token : readEnv('RADSVINN_SERVICE_TOKEN');
   if (token !== undefined && token === '') {
-    console.error('WARN: MERCURY_SERVICE_TOKEN is set but EMPTY — bearer auth is DISABLED. Unset it or provide a real token.');
+    console.error('WARN: RADSVINN_SERVICE_TOKEN is set but EMPTY — bearer auth is DISABLED. Unset it or provide a real token.');
   }
   // §5.1: the dashboard's own per-client bearer. TRIMMED; empty/whitespace
   // is treated as NOT CONFIGURED — that arm of the two-token compare is
@@ -698,7 +700,7 @@ export function createServer(options = {}) {
   // byte-identical to before the API extension (back-compat).
   const dashboardTokenRaw = options.dashboardToken !== undefined
     ? options.dashboardToken
-    : process.env.MERCURY_SERVICE_TOKEN_DASHBOARD;
+    : readEnv('RADSVINN_SERVICE_TOKEN_DASHBOARD');
   const dashboardToken = typeof dashboardTokenRaw === 'string' && dashboardTokenRaw.trim().length > 0
     ? dashboardTokenRaw.trim()
     : undefined;
@@ -711,7 +713,7 @@ export function createServer(options = {}) {
   // continuing would disable a safety boundary.
   if (token && dashboardToken && safeEqual(token, dashboardToken)) {
     throw new Error(
-      'MERCURY_SERVICE_TOKEN_DASHBOARD must be distinct from MERCURY_SERVICE_TOKEN — identical bearer tokens disable dashboard actor/confirm enforcement',
+      'RADSVINN_SERVICE_TOKEN_DASHBOARD must be distinct from RADSVINN_SERVICE_TOKEN — identical bearer tokens disable dashboard actor/confirm enforcement',
     );
   }
 
@@ -765,7 +767,7 @@ export function createServer(options = {}) {
     try {
       // Refresh origin/main in every grounding repo BEFORE the
       // engine plans against them — control-plane, no LLM, gated on
-      // MERCURY_FETCH_BEFORE_PLAN=1 (undefined when off; legacy plan shape
+      // RADSVINN_FETCH_BEFORE_PLAN=1 (undefined when off; legacy plan shape
       // unchanged). The result is persisted on the plan and rides
       // toPublicView, so a failed fetch degrades VISIBLY at the Slack shape
       // gate ("anchors may validate against stale code") instead of
@@ -1151,7 +1153,7 @@ export function createServer(options = {}) {
         state.update(planId, {
           status: 'failed',
           // errMsg on a composed string (it stringifies plain strings fine):
-          // record paths under MERCURY_ROOT render as ./results/... — still
+          // record paths under RADSVINN_ROOT render as ./results/... — still
           // a runnable --cleanup argument from the repo root, shorter for
           // the Slack budget, and no absolute server paths leak to clients.
           error: errMsg(`created but verify failed again — record ${recordPath}; inspect or cancel the tree: node tools/create-tree.mjs --cleanup ${recordPath} --live\nverify output tail:\n${verify.output.slice(-500)}`),
@@ -1179,7 +1181,7 @@ export function createServer(options = {}) {
         state.update(planId, {
           status: 'failed',
           agent_summary: undefined, // create-era summary is stale on a blocked plan
-          // errMsg strips MERCURY_ROOT from the embedded record path (see
+          // errMsg strips RADSVINN_ROOT from the embedded record path (see
           // the case-A wrap above for why).
           error: errMsg(fs.existsSync(recordPath)
             ? `retry blocked — a previous create attempt left a record at ${recordPath} that could not be parsed (or has no created[] list); inspect it manually before cleaning up or retrying (re-creating could duplicate already-written issues). Verify said: ${verify.output.slice(-300)}`
@@ -1211,7 +1213,7 @@ export function createServer(options = {}) {
         // human who already ran --cleanup gets re-verified green fragments
         // (cleanup cancels, never deletes) and the same cleanup instruction
         // forever — a circular dead-end with no exit. errMsg strips
-        // MERCURY_ROOT from the record path (shorter, still runnable).
+        // RADSVINN_ROOT from the record path (shorter, still runnable).
         error: errMsg([
           `retry blocked — a previous create attempt already wrote ${items.length} issue(s) to Jira; re-creating would duplicate them.`,
           `Clean up the partial tree with: node tools/create-tree.mjs --cleanup ${recordPath} --live`,
@@ -2210,54 +2212,60 @@ const LOOPBACK_BINDS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 const isMain = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 if (isMain) {
-  const port = Number(process.env.MERCURY_PORT || 8090);
-  const bind = process.env.MERCURY_BIND || '127.0.0.1';
-  const bootToken = process.env.MERCURY_SERVICE_TOKEN;
+  const port = Number(readEnv('RADSVINN_PORT') || 8090);
+  const bind = readEnv('RADSVINN_BIND') || '127.0.0.1';
+  const bootToken = readEnv('RADSVINN_SERVICE_TOKEN');
   // TRIMMED before the absent check: a whitespace-only token (a quoting
   // accident in a deploy config) is not a credential any client could
   // meaningfully present — fail closed on it exactly like the empty string.
   const tokenAbsent = bootToken === undefined || bootToken.trim() === '';
 
-  // Fail-closed boot: an unset MERCURY_SERVICE_TOKEN used to
+  // Fail-closed boot: an unset RADSVINN_SERVICE_TOKEN used to
   // silently DISABLE auth and an empty one only warned — fine on loopback
   // (only this machine can connect; today's behavior is kept, including
   // createServer's empty-token WARN), fatal on any other bind: a
   // non-loopback listen with no real token is an unauthenticated planner
   // API that can write to the real Jira board. Refuse to boot BEFORE
-  // listening. MERCURY_REQUIRE_AUTH=1 is the belt-and-suspenders override
+  // listening. RADSVINN_REQUIRE_AUTH=1 is the belt-and-suspenders override
   // (the container sets it): a real token is required regardless of bind,
   // so even a loopback-bound container process cannot run authless.
-  if (tokenAbsent && process.env.MERCURY_REQUIRE_AUTH === '1') {
+  if (tokenAbsent && readEnv('RADSVINN_REQUIRE_AUTH') === '1') {
     // eslint-disable-next-line no-console
-    console.error('[mercury] FATAL: MERCURY_REQUIRE_AUTH=1 but MERCURY_SERVICE_TOKEN is missing or empty — a real token is required regardless of bind. Refusing to boot.');
+    console.error('[radsvinn] FATAL: RADSVINN_REQUIRE_AUTH=1 but RADSVINN_SERVICE_TOKEN is missing or empty — a real token is required regardless of bind. Refusing to boot.');
     process.exit(1);
   }
   if (tokenAbsent && !LOOPBACK_BINDS.has(bind)) {
     // eslint-disable-next-line no-console
-    console.error(`[mercury] FATAL: MERCURY_BIND=${bind} is not loopback and MERCURY_SERVICE_TOKEN is missing or empty — refusing to expose an unauthenticated planner API. Set a real token, or bind to 127.0.0.1.`);
+    console.error(`[radsvinn] FATAL: RADSVINN_BIND=${bind} is not loopback and RADSVINN_SERVICE_TOKEN is missing or empty — refusing to expose an unauthenticated planner API. Set a real token, or bind to 127.0.0.1.`);
     process.exit(1);
   }
 
   // env-only Jira credential invariant / child-env isolation: on a server the Jira credential must be env-only.
-  // The ~/.config/mercury/jira-token file fallback (which every
+  // The canonical and legacy Jira token file fallbacks (which every
   // create-tree.mjs control-plane spawn would happily read) is a laptop
   // convenience — a token FILE sitting on a server/volume outlives env
   // rotation and widens the at-rest credential surface. The container sets
-  // MERCURY_REQUIRE_ENV_ONLY_TOKEN=1; under it, a present fallback file is
+  // RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1; under it, a present fallback file is
   // a boot-time fatal, not a warning someone scrolls past.
-  if (process.env.MERCURY_REQUIRE_ENV_ONLY_TOKEN === '1') {
-    const jiraTokenFile = path.join(os.homedir(), '.config', 'mercury', 'jira-token');
-    if (fs.existsSync(jiraTokenFile)) {
+  if (readEnv('RADSVINN_REQUIRE_ENV_ONLY_TOKEN') === '1') {
+    for (const brand of ['radsvinn', 'mercury']) { // Reject both canonical and compatibility paths.
+      const jiraTokenFile = path.join(os.homedir(), '.config', brand, 'jira-token');
+      try {
+        if (!fs.lstatSync(jiraTokenFile, { throwIfNoEntry: false })) continue;
+      } catch (err) {
+        console.error(`[radsvinn] FATAL: could not check ${jiraTokenFile}: ${err.code} — cannot establish env-only Jira token posture. Refusing to boot.`);
+        process.exit(1);
+      }
       // eslint-disable-next-line no-console
-      console.error(`[mercury] FATAL: MERCURY_REQUIRE_ENV_ONLY_TOKEN=1 but the file-fallback Jira token exists at ${jiraTokenFile} — on a server the token must be env-only (MERCURY_JIRA_TOKEN). Delete the file. Refusing to boot.`);
+      console.error(`[radsvinn] FATAL: RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1 but the file-fallback Jira token exists at ${jiraTokenFile} — on a server the token must be env-only (RADSVINN_JIRA_TOKEN). Delete the file. Refusing to boot.`);
       process.exit(1);
     }
   }
 
   const app = createServer();
   app.listen(port, bind).then((addr) => {
-    const engineMode = process.env.MERCURY_ENGINE === 'fake' ? 'fake' : 'real';
+    const engineMode = readEnv('RADSVINN_ENGINE') === 'fake' ? 'fake' : 'real';
     // eslint-disable-next-line no-console
-    console.log(`[mercury] planner service listening on http://${bind}:${addr.port} (engine=${engineMode})`);
+    console.log(`[radsvinn] planner service listening on http://${bind}:${addr.port} (engine=${engineMode})`);
   });
 }

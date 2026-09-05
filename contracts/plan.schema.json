@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/0merUfuk/mercury/contracts/plan.schema.json",
-  "title": "Mercury groomed plan (Phase 2 output / POST /plan response)",
+  "title": "Radsvinn groomed plan (Phase 2 output / POST /plan response)",
   "description": "The full ticket tree emitted after grooming. Parent links and milestones preserve the approved skeleton; scores are attached by the harness after the judge runs and are absent until then.",
   "type": "object",
   "required": ["plan_id", "requester", "role_lens", "mode", "epic", "milestones", "items"],

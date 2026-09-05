@@ -24,7 +24,7 @@ test('GET /plans/summary: all eleven statuses are present and zero-filled on a f
 });
 
 test('GET /plans/summary: counts move across a fake-engine lifecycle (breaking_down -> shape_ready -> rejected)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -49,7 +49,7 @@ test('GET /plans/summary: counts move across a fake-engine lifecycle (breaking_d
 });
 
 test('GET /plans/summary requires the bearer like every other non-healthz route', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SERVICE_TOKEN: 'sekret-summary' });
+  const ctx = await startTestServer({ RADSVINN_SERVICE_TOKEN: 'sekret-summary' });
   t.after(() => ctx.close());
 
   const noAuth = await getJson(ctx.baseUrl, '/plans/summary');

@@ -1,3 +1,4 @@
+import { sandboxedEnv, redactSecrets } from '../../dashboard/lib/child-env.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -31,7 +32,7 @@ export function resolveBinaryPath(binaryName, env = process.env) {
   return null;
 }
 
-export function parseCodexEvents(stdout) {
+export function parseCodexEvents(stdout, env = process.env) {
   let sessionId;
   let agentMessage;
   let usage;
@@ -45,7 +46,7 @@ export function parseCodexEvents(stdout) {
     try {
       event = JSON.parse(line);
     } catch (err) {
-      throw new Error(`codex returned malformed JSONL at line ${index + 1}: ${err.message}`);
+      throw new Error(`codex returned malformed JSONL at line ${index + 1}`);
     }
 
     if (event.type === 'thread.started' && typeof event.thread_id === 'string' && event.thread_id) {
@@ -61,7 +62,7 @@ export function parseCodexEvents(stdout) {
     if (event.type === 'item.completed' && event.item && event.item.type === 'error') {
       const message = typeof event.item.message === 'string' ? event.item.message : 'unknown Codex error';
       if (message.startsWith(MALFORMED_ROLE_PREFIX)) continue;
-      throw new Error(`codex reported an error event: ${message}`);
+      throw new Error(`codex reported an error event: ${redactSecrets(redactSecrets(message, env))}`);
     }
 
     if (event.type === 'turn.completed' && event.usage && typeof event.usage === 'object') {
@@ -82,7 +83,7 @@ function requestedCodexModel(seat) {
 }
 
 function codexChildEnv(source) {
-  const env = { ...(source || {}) };
+  const env = sandboxedEnv(source || {});
   for (const key of CODEX_STRIP_ENV_KEYS) delete env[key];
   return env;
 }
@@ -120,6 +121,7 @@ function spawnTimeoutMs(value) {
 }
 
 function defaultRunCodexSpawn({ binaryPath, args, cwd, env, timeoutMs }) {
+  const safe = (text) => redactSecrets(redactSecrets(text, env));
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
     const child = spawn(binaryPath, args, {
@@ -135,7 +137,7 @@ function defaultRunCodexSpawn({ binaryPath, args, cwd, env, timeoutMs }) {
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
-      reject(new Error(`codex call timed out after ${timeoutMs}ms and was SIGKILLed. stderr tail: ${stderr.slice(-2000)}`));
+      reject(new Error(`codex call timed out after ${timeoutMs}ms and was SIGKILLed. stderr tail: ${safe(stderr).slice(-2000)}`));
     }, timeoutMs);
 
     child.stdout.on('data', (chunk) => { stdout += chunk; });
@@ -145,7 +147,7 @@ function defaultRunCodexSpawn({ binaryPath, args, cwd, env, timeoutMs }) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(new Error(`failed to spawn codex: ${err.message}`));
+      reject(new Error(`failed to spawn codex: ${safe(err.message)}`));
     });
 
     child.on('close', (code) => {
@@ -153,7 +155,7 @@ function defaultRunCodexSpawn({ binaryPath, args, cwd, env, timeoutMs }) {
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`codex exited ${code}. stderr tail: ${stderr.slice(-2000)}`));
+        reject(new Error(`codex exited ${code}. stderr tail: ${safe(stderr).slice(-2000)}`));
         return;
       }
       resolve({ stdout, stderr, wallMs: Date.now() - startedAt });
@@ -200,7 +202,7 @@ export function createCodexRuntime(
         throw new Error('codex runPhase requires a sandboxed childEnv');
       }
 
-      const outputPath = path.join(os.tmpdir(), `mercury-codex-${process.pid}-${randomUUID()}.txt`);
+      const outputPath = path.join(os.tmpdir(), `radsvinn-codex-${process.pid}-${randomUUID()}.txt`);
       const timeoutMs = spawnTimeoutMs(req.timeoutMs);
       const phaseStartedAt = Date.now();
       // Codex authenticates from ~/.codex/auth.json. Provider API keys are not
@@ -218,7 +220,7 @@ export function createCodexRuntime(
           timeoutMs,
           outputPath,
         });
-        const events = parseCodexEvents(spawned?.stdout);
+        const events = parseCodexEvents(spawned?.stdout, req.childEnv);
 
         let outputText;
         try {

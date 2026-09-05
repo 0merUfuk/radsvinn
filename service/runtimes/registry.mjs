@@ -1,3 +1,4 @@
+import { readEnv } from '../../dashboard/lib/env.mjs';
 import { createClaudeRuntime } from './claude.mjs';
 import { createCodexRuntime } from './codex.mjs';
 
@@ -7,12 +8,12 @@ const RUNTIMES = new Map([
 ]);
 
 export function resolveRuntime(env = process.env) {
-  const id = env.MERCURY_AGENT_RUNTIME || 'claude';
+  const id = readEnv('RADSVINN_AGENT_RUNTIME', env) || 'claude';
   const factory = RUNTIMES.get(id);
-  if (!factory) throw new Error(`Unknown MERCURY_AGENT_RUNTIME: ${id}`);
+  if (!factory) throw new Error('Unknown RADSVINN_AGENT_RUNTIME; expected claude or codex');
   const runtime = factory(env);
   if (!runtime.binaryPath) {
-    throw new Error(`MERCURY_AGENT_RUNTIME=${id}: runtime binary not found on PATH (${runtime.binaryName})`);
+    throw new Error(`RADSVINN_AGENT_RUNTIME=${id}: runtime binary not found on PATH (${runtime.binaryName})`);
   }
   return runtime;
 }

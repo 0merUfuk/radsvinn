@@ -12,9 +12,9 @@ describe('lib/secret-scan scanText', () => {
     assert.ok(hits.some((h) => h.pattern === 'DASH_ env name'));
   });
 
-  test('flags a MERCURY_ env name', () => {
-    const hits = scanText('fetch(MERCURY_SERVICE_TOKEN_DASHBOARD)');
-    assert.ok(hits.some((h) => h.pattern === 'MERCURY_ env name'));
+  test('flags a RADSVINN_ env name', () => {
+    const hits = scanText('fetch(RADSVINN_SERVICE_TOKEN_DASHBOARD)');
+    assert.ok(hits.some((h) => h.pattern === 'RADSVINN_ env name'));
   });
 
   test('flags GitHub token shapes', () => {
@@ -42,7 +42,7 @@ describe('lib/secret-scan scanText', () => {
   });
 
   test('does not infinite-loop on adjacent/zero-width-adjacent matches', () => {
-    const many = 'MERCURY_A MERCURY_B MERCURY_C '.repeat(50);
+    const many = 'RADSVINN_A RADSVINN_B RADSVINN_C '.repeat(50);
     const hits = scanText(many);
     assert.equal(hits.length, 150);
   });
@@ -54,7 +54,7 @@ describe('lib/secret-scan scanDirectory', () => {
   });
 
   test('walks nested directories and flags violations with file paths', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-secret-scan-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-secret-scan-'));
     try {
       fs.writeFileSync(path.join(dir, 'clean.js'), 'console.log("hello world");');
       fs.mkdirSync(path.join(dir, 'nested'));
@@ -72,7 +72,7 @@ describe('lib/secret-scan scanDirectory', () => {
   });
 
   test('ignores non-matching extensions', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-secret-scan-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-secret-scan-'));
     try {
       fs.writeFileSync(path.join(dir, 'secret.env'), 'DASH_SESSION_SECRET=abc');
       assert.deepEqual(scanDirectory(dir), []);

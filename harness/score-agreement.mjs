@@ -30,7 +30,7 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { loadConfig, loadJson, readText, writeJson, parseArgs, sha256File, safeKey, HARNESS_DIR, MERCURY_ROOT } from './lib.mjs';
+import { loadConfig, loadJson, readText, writeJson, parseArgs, sha256File, safeKey, HARNESS_DIR, RADSVINN_ROOT } from './lib.mjs';
 
 const HAND_TO_DEV_BAR = 16; // out of 20 (held-out DoD set)
 const HELD_OUT_N = 20;
@@ -42,7 +42,7 @@ function resolveRun(runArg) {
   const cands = [
     path.isAbsolute(runArg) ? runArg : path.resolve(process.cwd(), runArg),
     path.resolve(HARNESS_DIR, runArg),
-    path.resolve(MERCURY_ROOT, runArg),
+    path.resolve(RADSVINN_ROOT, runArg),
   ];
   for (const dir of cands) if (fs.existsSync(dir)) return dir;
   console.error(`run dir not found: ${runArg}`); process.exit(2);
@@ -455,7 +455,7 @@ function main() {
   };
   writeJson(path.join(runDir, 'agreement.json'), report);
 
-  console.log('\nMercury DoD — judge-vs-human agreement');
+  console.log('\nRadsvinn DoD — judge-vs-human agreement');
   console.log('══════════════════════════════════════');
   console.log(`pass_min: ${passMin}  (judge-accept = run-dir verdict PASS; csv judge columns are never trusted)`);
   console.log(`verify:   ${verify.enabled ? (verify.ok ? 'OK' : 'FAILED') : 'DISABLED (--no-verify)'}`);

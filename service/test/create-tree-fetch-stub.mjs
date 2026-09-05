@@ -8,13 +8,13 @@
 // This keeps tool-level attach request assertions reusable and explicit.
 //
 // Env contract (set by the test's spawn):
-//   MERCURY_TEST_FETCH_LOG        (required) file that receives one JSON line
+//   RADSVINN_TEST_FETCH_LOG        (required) file that receives one JSON line
 //                                 per request: {method, url, body}. Created/
 //                                 truncated at import time so a test can
 //                                 assert the stub actually installed;
 //                                 appendFileSync per request so the journal
 //                                 survives a die()/process.exit mid-run.
-//   MERCURY_TEST_EXISTING_ISSUES  (optional) JSON map KEY → {summary,
+//   RADSVINN_TEST_EXISTING_ISSUES  (optional) JSON map KEY → {summary,
 //                                 issuetype} answering GET /issue/{KEY};
 //                                 unknown keys get a Jira-shaped 404 —
 //                                 exactly the attach-verify failure the tool
@@ -28,13 +28,13 @@
 
 import fs from 'node:fs';
 
-const logPath = process.env.MERCURY_TEST_FETCH_LOG;
+const logPath = process.env.RADSVINN_TEST_FETCH_LOG;
 if (!logPath) {
-  throw new Error('create-tree-fetch-stub: MERCURY_TEST_FETCH_LOG is required');
+  throw new Error('create-tree-fetch-stub: RADSVINN_TEST_FETCH_LOG is required');
 }
 fs.writeFileSync(logPath, ''); // prove installation; truncate any stale log
 
-const existingIssues = JSON.parse(process.env.MERCURY_TEST_EXISTING_ISSUES || '{}');
+const existingIssues = JSON.parse(process.env.RADSVINN_TEST_EXISTING_ISSUES || '{}');
 let issueCounter = 9000;
 
 // The tool's api() only touches res.ok / res.status / res.text() — a plain

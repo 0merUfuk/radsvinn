@@ -313,7 +313,7 @@ test('skeletonMessage: no sizing WARN (or no gate at all) keeps the exact legacy
 });
 
 test('gate-truthfulness planReadyMessage: the gate line fails CLOSED — only a present, non-skipped, ok plan gate earns ANY ✅ (structure included)', () => {
-  // A fake createServer translates MERCURY_SKIP_PLAN_ANCHORS=1 into
+  // A fake createServer translates RADSVINN_SKIP_PLAN_ANCHORS=1 into
   // {ok:true, skipped:true}; that skips the WHOLE plan gate (structure AND
   // anchors), so `structure ✅` must not print either.
   const skipped = planReadyMessage(fixturePublicPlan({ plan_gate: { ok: true, skipped: true } }));
@@ -482,7 +482,7 @@ test('poller plan_ready: gate message first, then the exact 3-step external uplo
   assert.equal(getUrlCall.headers['Content-Type'], 'application/x-www-form-urlencoded');
   assert.equal(getUrlCall.headers.Authorization, 'Bearer xoxb-test-token');
   const params = new URLSearchParams(getUrlCall.body);
-  assert.equal(params.get('filename'), 'mercury-plan-99999999.txt', 'filename = mercury-plan-<plan_id first 8>.txt');
+  assert.equal(params.get('filename'), 'radsvinn-plan-99999999.txt', 'filename = radsvinn-plan-<plan_id first 8>.txt');
   assert.equal(params.get('length'), String(Buffer.byteLength(expectedContent, 'utf8')));
   assert.notEqual(Number(params.get('length')), expectedContent.length,
     'sanity: byte length must differ from char length here — proving bytes were counted');

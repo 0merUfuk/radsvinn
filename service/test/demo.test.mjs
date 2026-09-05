@@ -16,22 +16,22 @@ const ROOT = path.resolve(TEST_DIR, '..', '..');
 const DEMO_PATH = path.join(ROOT, 'service', 'demo.mjs');
 const ASK_PATH = path.join(ROOT, 'fixtures', 'demo', 'ask.md');
 const POISONED_DEMO_ENV = {
-  MERCURY_DAILY_HARD_USD: '0',
-  MERCURY_DAILY_SOFT_USD: '0',
-  MERCURY_PLAN_BUDGET_USD: '0',
-  MERCURY_FAKE_GROOM_FAIL: '1',
-  MERCURY_FAKE_GROOM_TRUNCATED: '1',
-  MERCURY_FAKE_CREATE_FAIL: '1',
-  MERCURY_FAKE_CREATE_PARTIAL: '1',
-  MERCURY_FAKE_VERIFY_FAIL: '1',
-  MERCURY_FAKE_VERIFY_REJECT: '1',
-  MERCURY_FAKE_CLEANUP_FAIL: '1',
-  MERCURY_TREECHECK_BIN: '/definitely/not/the/real/treecheck',
-  MERCURY_COUPLING_MAP: '/definitely/not/the/default/coupling-map.yaml',
+  RADSVINN_DAILY_HARD_USD: '0',
+  RADSVINN_DAILY_SOFT_USD: '0',
+  RADSVINN_PLAN_BUDGET_USD: '0',
+  RADSVINN_FAKE_GROOM_FAIL: '1',
+  RADSVINN_FAKE_GROOM_TRUNCATED: '1',
+  RADSVINN_FAKE_CREATE_FAIL: '1',
+  RADSVINN_FAKE_CREATE_PARTIAL: '1',
+  RADSVINN_FAKE_VERIFY_FAIL: '1',
+  RADSVINN_FAKE_VERIFY_REJECT: '1',
+  RADSVINN_FAKE_CLEANUP_FAIL: '1',
+  RADSVINN_TREECHECK_BIN: '/definitely/not/the/real/treecheck',
+  RADSVINN_COUPLING_MAP: '/definitely/not/the/default/coupling-map.yaml',
 };
 
 function tempParent(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-demo-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-demo-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -218,13 +218,13 @@ test('grounding git setup ignores every inherited GIT_* poison variable', (t) =>
 });
 
 test('fake engine fault env is injectable while a clean env remains fault-free', async (t) => {
-  const cleanDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-clean-fake-env-'));
-  const faultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-fault-fake-env-'));
+  const cleanDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-clean-fake-env-'));
+  const faultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-fault-fake-env-'));
   t.after(() => fs.rmSync(cleanDir, { recursive: true, force: true }));
   t.after(() => fs.rmSync(faultDir, { recursive: true, force: true }));
 
   const clean = createEngine('fake', { env: {} });
-  const faulty = createEngine('fake', { env: { MERCURY_FAKE_GROOM_FAIL: '1' } });
+  const faulty = createEngine('fake', { env: { RADSVINN_FAKE_GROOM_FAIL: '1' } });
   const cleanPhase = await clean.phase1({ runDir: cleanDir });
   await clean.groom({ runDir: cleanDir, sessionId: cleanPhase.sessionId });
   assert.equal(fs.existsSync(path.join(cleanDir, 'plan.json')), true);
@@ -253,7 +253,7 @@ test('make demo succeeds despite inherited breaker, fake-fault, and gate-overrid
 });
 
 test('demo CLI exits nonzero on errors', () => {
-  const missingAsk = path.join(os.tmpdir(), `mercury-missing-ask-${process.pid}.md`);
+  const missingAsk = path.join(os.tmpdir(), `radsvinn-missing-ask-${process.pid}.md`);
   const result = spawnSync(process.execPath, [DEMO_PATH, missingAsk], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -266,10 +266,10 @@ test('demo CLI exits nonzero on errors', () => {
 });
 
 test('real createServer refuses the fake-only whole-plan-gate skip even with an injected gate', (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-real-skip-refusal-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-real-skip-refusal-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
-  const previous = process.env.MERCURY_SKIP_PLAN_ANCHORS;
-  process.env.MERCURY_SKIP_PLAN_ANCHORS = '1';
+  const previous = process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+  process.env.RADSVINN_SKIP_PLAN_ANCHORS = '1';
   try {
     assert.throws(
       () => createServer({
@@ -278,11 +278,11 @@ test('real createServer refuses the fake-only whole-plan-gate skip even with an 
         engine: {},
         gatePlan: async () => ({ ok: true, skipped: true }),
       }),
-      /skips the entire plan gate.*allowed only with MERCURY_ENGINE=fake/,
+      /skips the entire plan gate.*allowed only with RADSVINN_ENGINE=fake/,
     );
   } finally {
-    if (previous === undefined) delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
-    else process.env.MERCURY_SKIP_PLAN_ANCHORS = previous;
+    if (previous === undefined) delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+    else process.env.RADSVINN_SKIP_PLAN_ANCHORS = previous;
   }
 });
 
@@ -294,7 +294,7 @@ test('createServer.listen rejects bind errors instead of leaving a pending promi
   });
   t.after(() => new Promise((resolve) => blocker.close(() => resolve())));
 
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-listen-error-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-listen-error-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
   const app = createServer({
     resultsDir,

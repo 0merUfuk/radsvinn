@@ -1,6 +1,6 @@
-# Mercury Continue
+# Radsvinn Continue
 
-Resume a Mercury initiative from the state quartet.
+Resume a Radsvinn initiative from the state quartet.
 
 **When to use:** returning to an existing initiative after compaction or a break.
 

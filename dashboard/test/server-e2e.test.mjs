@@ -608,7 +608,7 @@ describe('e2e: actor is constructed ONLY from the server-side session — smuggl
     }
   });
 
-  test('an X-Mercury-Actor / X-Mercury-Role header cannot influence RBAC or the forwarded actor', async () => {
+  test('an X-Radsvinn-Actor / X-Radsvinn-Role header cannot influence RBAC or the forwarded actor', async () => {
     const { baseUrl, sessionStore, close } = await startTestServer({ config: cfg() });
     try {
       const { cookie } = mintSession(sessionStore, { login: 'plain-viewer', roles: ['viewer'] });
@@ -619,13 +619,13 @@ describe('e2e: actor is constructed ONLY from the server-side session — smuggl
         origin: 'https://dash.test',
         headers: {
           'X-Mercury-CSRF': sessResp.body.csrf_token,
-          'X-Mercury-Role': 'creator',
-          'X-Mercury-Actor': 'gh:attacker',
+          'X-Radsvinn-Role': 'creator',
+          'X-Radsvinn-Actor': 'gh:attacker',
         },
         body: { description: 'x' },
       });
       // plain-viewer lacks `planner`, so this must still be a role denial —
-      // proving the spoofed X-Mercury-Role header changed nothing.
+      // proving the spoofed X-Radsvinn-Role header changed nothing.
       assert.equal(res.status, 403);
       assert.equal(res.body.role_denied, true);
       assert.equal(fakePlanner.calls.length, 0);

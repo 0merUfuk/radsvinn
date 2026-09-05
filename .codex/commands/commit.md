@@ -1,4 +1,4 @@
-# Mercury Commit
+# Radsvinn Commit
 
 Slice changes into clean conventional commits.
 

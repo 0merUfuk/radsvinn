@@ -63,7 +63,7 @@ export function appendAudit(resultsRoot, record) {
   } catch (err) {
     // Loud, never silent — the plan's own status history is the
     // secondary evidence when this line is missing.
-    console.error(`[mercury] AUDIT WRITE FAILED: ${err && err.message ? err.message : String(err)}`);
+    console.error(`[radsvinn] AUDIT WRITE FAILED: ${err && err.message ? err.message : String(err)}`);
     return false;
   }
 }

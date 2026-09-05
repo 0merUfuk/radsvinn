@@ -1,8 +1,8 @@
-# Contributing to Mercury
+# Contributing to Radsvinn
 
 *Version 1.0 · 2026-07-18*
 
-Mercury is a coupling-aware AI planner. The LLM proposes; the Go gate validates; a human approves twice. This document is the on-ramp for code contributors.
+Radsvinn is a coupling-aware AI planner. The LLM proposes; the Go gate validates; a human approves twice. This document is the on-ramp for code contributors.
 
 ## Table of contents
 
@@ -23,8 +23,8 @@ Mercury is a coupling-aware AI planner. The LLM proposes; the Go gate validates;
 ## Getting started
 
 ```bash
-git clone https://github.com/0merUfuk/mercury.git
-cd mercury
+git clone https://github.com/0merUfuk/radsvinn.git
+cd radsvinn
 make demo
 make check
 ```
@@ -33,7 +33,7 @@ See `docs/GETTING-STARTED.md` for environment setup and `docs/ARCHITECTURE.md` f
 
 ## Agent workflow
 
-Mercury development is designed for multi-agent tools. The canonical roles are:
+Radsvinn development is designed for multi-agent tools. The canonical roles are:
 
 | Role | Responsibility | Model tier | Denial |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Mercury development is designed for multi-agent tools. The canonical roles are:
 | `reviewer` | Read-only quality gate | Medium | Write/Edit |
 
 Agents are defined natively for each tool:
-- Hermes: root `CLAUDE.md`/`AGENTS.md` + Hermes skills `mercury-*`
+- Hermes: root `CLAUDE.md`/`AGENTS.md` + Hermes skills `radsvinn-*`
 - Claude Code: `.claude/agents/*.md`
 - Codex: `.codex/agents/*.toml`
 

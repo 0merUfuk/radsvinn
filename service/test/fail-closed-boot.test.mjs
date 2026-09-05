@@ -20,35 +20,35 @@ const SERVER = path.join(ROOT, 'service', 'server.mjs');
 
 const LISTENING_RE = /planner service listening on/;
 
-// A clean child env: the outer test runner's own mercury knobs must never
+// A clean child env: the outer test runner's own radsvinn knobs must never
 // leak into a boot whose whole point is which knobs are (un)set.
 function childEnv(t, overrides = {}) {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-boot-test-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-boot-test-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
   const env = { ...process.env };
   for (const k of [
-    'MERCURY_SERVICE_TOKEN', 'MERCURY_BIND', 'MERCURY_PORT',
-    'MERCURY_REQUIRE_AUTH', 'MERCURY_REQUIRE_ENV_ONLY_TOKEN',
-    'MERCURY_SKIP_PLAN_ANCHORS',
+    'RADSVINN_SERVICE_TOKEN', 'RADSVINN_BIND', 'RADSVINN_PORT',
+    'RADSVINN_REQUIRE_AUTH', 'RADSVINN_REQUIRE_ENV_ONLY_TOKEN',
+    'RADSVINN_SKIP_PLAN_ANCHORS',
   ]) delete env[k];
   return {
     ...env,
-    MERCURY_ENGINE: 'fake',
-    MERCURY_RESULTS_DIR: resultsDir,
-    MERCURY_PORT: '0', // ephemeral — parallel boots never collide
+    RADSVINN_ENGINE: 'fake',
+    RADSVINN_RESULTS_DIR: resultsDir,
+    RADSVINN_PORT: '0', // ephemeral — parallel boots never collide
     ...overrides,
   };
 }
 
 test('real-mode direct boot refuses the fake-only whole-plan-gate skip before listening', async (t) => {
   const { out, exited } = bootServer(t, {
-    MERCURY_ENGINE: 'real',
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_ENGINE: 'real',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
   });
   const code = await exited;
   assert.notEqual(code, 0);
-  assert.match(out.stderr, /MERCURY_SKIP_PLAN_ANCHORS=1 skips the entire plan gate/);
-  assert.match(out.stderr, /allowed only with MERCURY_ENGINE=fake/);
+  assert.match(out.stderr, /RADSVINN_SKIP_PLAN_ANCHORS=1 skips the entire plan gate/);
+  assert.match(out.stderr, /allowed only with RADSVINN_ENGINE=fake/);
   assert.doesNotMatch(out.stdout, LISTENING_RE);
 });
 
@@ -82,17 +82,17 @@ async function until(fn, timeoutMs = 10000) {
 // ---------------------------------------------------------------------------
 
 test('B1: non-loopback bind + NO token → refuses to boot (exit 1, FATAL on stderr, never listens)', async (t) => {
-  const { out, exited } = bootServer(t, { MERCURY_BIND: '0.0.0.0' });
+  const { out, exited } = bootServer(t, { RADSVINN_BIND: '0.0.0.0' });
   const code = await exited;
   assert.notEqual(code, 0, 'must exit non-zero');
   assert.match(out.stderr, /FATAL/, 'the fatal line lands on stderr');
   assert.match(out.stderr, /not loopback/, 'names the reason');
-  assert.match(out.stderr, /MERCURY_SERVICE_TOKEN/, 'names the missing knob');
+  assert.match(out.stderr, /RADSVINN_SERVICE_TOKEN/, 'names the missing knob');
   assert.doesNotMatch(out.stdout, LISTENING_RE, 'must die BEFORE listening');
 });
 
 test('B1: non-loopback bind + EMPTY token → same refusal (empty is not a token)', async (t) => {
-  const { out, exited } = bootServer(t, { MERCURY_BIND: '0.0.0.0', MERCURY_SERVICE_TOKEN: '' });
+  const { out, exited } = bootServer(t, { RADSVINN_BIND: '0.0.0.0', RADSVINN_SERVICE_TOKEN: '' });
   const code = await exited;
   assert.notEqual(code, 0);
   assert.match(out.stderr, /FATAL/);
@@ -100,7 +100,7 @@ test('B1: non-loopback bind + EMPTY token → same refusal (empty is not a token
 });
 
 test('B1: non-loopback bind + a REAL token → boots', async (t) => {
-  const { child, out } = bootServer(t, { MERCURY_BIND: '0.0.0.0', MERCURY_SERVICE_TOKEN: 'boot-test-token' });
+  const { child, out } = bootServer(t, { RADSVINN_BIND: '0.0.0.0', RADSVINN_SERVICE_TOKEN: 'boot-test-token' });
   await until(() => LISTENING_RE.test(out.stdout));
   assert.doesNotMatch(out.stderr, /FATAL/);
   child.kill('SIGKILL');
@@ -114,40 +114,40 @@ test("B1: loopback + no token keeps today's behavior — boots", async (t) => {
 });
 
 test("B1: loopback + EMPTY token keeps today's behavior — boots with the WARN, no fatal", async (t) => {
-  const { child, out } = bootServer(t, { MERCURY_SERVICE_TOKEN: '' });
+  const { child, out } = bootServer(t, { RADSVINN_SERVICE_TOKEN: '' });
   await until(() => LISTENING_RE.test(out.stdout));
   assert.match(out.stderr, /WARN.*EMPTY/i, "createServer's empty-token warning still fires");
   assert.doesNotMatch(out.stderr, /FATAL/);
   child.kill('SIGKILL');
 });
 
-test('B1: MERCURY_REQUIRE_AUTH=1 → fatal without a real token even on loopback (the container belt-and-suspenders)', async (t) => {
-  const { out, exited } = bootServer(t, { MERCURY_REQUIRE_AUTH: '1' });
+test('B1: RADSVINN_REQUIRE_AUTH=1 → fatal without a real token even on loopback (the container belt-and-suspenders)', async (t) => {
+  const { out, exited } = bootServer(t, { RADSVINN_REQUIRE_AUTH: '1' });
   const code = await exited;
   assert.notEqual(code, 0);
   assert.match(out.stderr, /FATAL/);
-  assert.match(out.stderr, /MERCURY_REQUIRE_AUTH/);
+  assert.match(out.stderr, /RADSVINN_REQUIRE_AUTH/);
   assert.doesNotMatch(out.stdout, LISTENING_RE);
 });
 
-test('B1: a WHITESPACE-only token is ABSENT (trimmed before the check) — fatal under MERCURY_REQUIRE_AUTH=1 and on a non-loopback bind', async (t) => {
+test('B1: a WHITESPACE-only token is ABSENT (trimmed before the check) — fatal under RADSVINN_REQUIRE_AUTH=1 and on a non-loopback bind', async (t) => {
   // A quoting accident in a deploy config ('   ') must not satisfy the
   // fail-closed gate — no client could meaningfully present it.
-  const gated = bootServer(t, { MERCURY_REQUIRE_AUTH: '1', MERCURY_SERVICE_TOKEN: '   ' });
+  const gated = bootServer(t, { RADSVINN_REQUIRE_AUTH: '1', RADSVINN_SERVICE_TOKEN: '   ' });
   assert.notEqual(await gated.exited, 0, 'REQUIRE_AUTH + whitespace token must exit non-zero');
   assert.match(gated.out.stderr, /FATAL/);
-  assert.match(gated.out.stderr, /MERCURY_REQUIRE_AUTH/);
+  assert.match(gated.out.stderr, /RADSVINN_REQUIRE_AUTH/);
   assert.doesNotMatch(gated.out.stdout, LISTENING_RE);
 
-  const exposed = bootServer(t, { MERCURY_BIND: '0.0.0.0', MERCURY_SERVICE_TOKEN: ' \t ' });
+  const exposed = bootServer(t, { RADSVINN_BIND: '0.0.0.0', RADSVINN_SERVICE_TOKEN: ' \t ' });
   assert.notEqual(await exposed.exited, 0, 'non-loopback + whitespace token must exit non-zero');
   assert.match(exposed.out.stderr, /FATAL/);
   assert.match(exposed.out.stderr, /not loopback/);
   assert.doesNotMatch(exposed.out.stdout, LISTENING_RE);
 });
 
-test('B1: MERCURY_REQUIRE_AUTH=1 + a real token → boots on loopback', async (t) => {
-  const { child, out } = bootServer(t, { MERCURY_REQUIRE_AUTH: '1', MERCURY_SERVICE_TOKEN: 'boot-test-token' });
+test('B1: RADSVINN_REQUIRE_AUTH=1 + a real token → boots on loopback', async (t) => {
+  const { child, out } = bootServer(t, { RADSVINN_REQUIRE_AUTH: '1', RADSVINN_SERVICE_TOKEN: 'boot-test-token' });
   await until(() => LISTENING_RE.test(out.stdout));
   assert.doesNotMatch(out.stderr, /FATAL/);
   child.kill('SIGKILL');
@@ -157,8 +157,8 @@ test('B1: MERCURY_REQUIRE_AUTH=1 + a real token → boots on loopback', async (t
 // B3b — env-only Jira credential invariant: env-only Jira token on servers
 // ---------------------------------------------------------------------------
 
-test('B3b: MERCURY_REQUIRE_ENV_ONLY_TOKEN=1 + a file-fallback token under $HOME → refuses to boot, names the file', async (t) => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-boot-home-'));
+test('B3b: RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1 + a file-fallback token under $HOME → refuses to boot, names the file', async (t) => {
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-boot-home-'));
   t.after(() => fs.rmSync(fakeHome, { recursive: true, force: true }));
   const tokenFile = path.join(fakeHome, '.config', 'mercury', 'jira-token');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
@@ -166,8 +166,8 @@ test('B3b: MERCURY_REQUIRE_ENV_ONLY_TOKEN=1 + a file-fallback token under $HOME 
 
   const { out, exited } = bootServer(t, {
     HOME: fakeHome, // os.homedir() honors $HOME on POSIX
-    MERCURY_REQUIRE_ENV_ONLY_TOKEN: '1',
-    MERCURY_SERVICE_TOKEN: 'boot-test-token',
+    RADSVINN_REQUIRE_ENV_ONLY_TOKEN: '1',
+    RADSVINN_SERVICE_TOKEN: 'boot-test-token',
   });
   const code = await exited;
   assert.notEqual(code, 0);
@@ -177,14 +177,14 @@ test('B3b: MERCURY_REQUIRE_ENV_ONLY_TOKEN=1 + a file-fallback token under $HOME 
   assert.doesNotMatch(out.stdout, LISTENING_RE);
 });
 
-test('B3b: MERCURY_REQUIRE_ENV_ONLY_TOKEN=1 with NO file fallback under $HOME → boots', async (t) => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-boot-home-'));
+test('B3b: RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1 with NO file fallback under $HOME → boots', async (t) => {
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-boot-home-'));
   t.after(() => fs.rmSync(fakeHome, { recursive: true, force: true }));
 
   const { child, out } = bootServer(t, {
     HOME: fakeHome,
-    MERCURY_REQUIRE_ENV_ONLY_TOKEN: '1',
-    MERCURY_SERVICE_TOKEN: 'boot-test-token',
+    RADSVINN_REQUIRE_ENV_ONLY_TOKEN: '1',
+    RADSVINN_SERVICE_TOKEN: 'boot-test-token',
   });
   await until(() => LISTENING_RE.test(out.stdout));
   assert.doesNotMatch(out.stderr, /FATAL/);
