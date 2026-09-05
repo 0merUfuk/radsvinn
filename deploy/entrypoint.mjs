@@ -34,6 +34,7 @@
 // text is scrubbed of x-access-token credentials before logging
 // (deploy/lib.mjs scrub), and the token itself is NEVER logged.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,7 +47,7 @@ const DATA = '/data';
 
 function log(line) {
   // eslint-disable-next-line no-console
-  console.error(`[mercury-entrypoint] ${line}`);
+  console.error(`[radsvinn-entrypoint] ${line}`);
 }
 
 function fatal(line) {
@@ -69,20 +70,20 @@ for (const sub of ['results', 'home', 'repos']) {
   fs.mkdirSync(path.join(DATA, sub), { recursive: true });
 }
 process.env.HOME = path.join(DATA, 'home'); // persists the claude session store → --resume survives redeploys
-process.env.MERCURY_RESULTS_DIR = path.join(DATA, 'results');
-process.env.MERCURY_REPOS_ROOT = path.join(DATA, 'repos');
-log(`volume ready: results=${process.env.MERCURY_RESULTS_DIR} home=${process.env.HOME} repos=${process.env.MERCURY_REPOS_ROOT}`);
+process.env.RADSVINN_RESULTS_DIR = path.join(DATA, 'results');
+process.env.RADSVINN_REPOS_ROOT = path.join(DATA, 'repos');
+log(`volume ready: results=${readEnv('RADSVINN_RESULTS_DIR')} home=${process.env.HOME} repos=${readEnv('RADSVINN_REPOS_ROOT')}`);
 
 // -- 2. grounding sync -------------------------------------------------------
 
-const groundingRepoConfig = resolveGroundingRepos(process.env.MERCURY_GROUNDING_REPOS);
+const groundingRepoConfig = resolveGroundingRepos(readEnv('RADSVINN_GROUNDING_REPOS'));
 if (groundingRepoConfig.error) fatal(groundingRepoConfig.error);
 const repos = groundingRepoConfig.repos;
 // The VCS org that owns the grounding repos is deployment-specific and has NO
 // baked-in default — clone URLs are `https://github.com/<org>/<repo>`, so a
 // wrong default would silently clone a stranger's repos or 404. Fail loud.
-const org = process.env.MERCURY_GROUNDING_ORG;
-if (!org) fatal('MERCURY_GROUNDING_ORG is unset — set the GitHub org/owner that hosts your grounding repos (e.g. example-org).');
+const org = readEnv('RADSVINN_GROUNDING_ORG');
+if (!org) fatal('RADSVINN_GROUNDING_ORG is unset — set the GitHub org/owner that hosts your grounding repos (e.g. example-org).');
 const githubToken = process.env.GITHUB_TOKEN;
 
 // Per-invocation auth env — see the header's credential-hygiene note and
@@ -90,7 +91,7 @@ const githubToken = process.env.GITHUB_TOKEN;
 const gitEnv = { ...process.env, ...gitAuthEnv(githubToken) };
 
 for (const repo of repos) {
-  const dir = path.join(process.env.MERCURY_REPOS_ROOT, repo);
+  const dir = path.join(readEnv('RADSVINN_REPOS_ROOT'), repo);
   const cleanUrl = `https://github.com/${org}/${repo}`;
 
   if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, '.git'))) {

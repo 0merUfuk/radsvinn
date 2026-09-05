@@ -1,6 +1,6 @@
-# Mercury Status
+# Radsvinn Status
 
-Collation health check across the Mercury repo.
+Collation health check across the Radsvinn repo.
 
 **When to use:** at session start or after a change.
 

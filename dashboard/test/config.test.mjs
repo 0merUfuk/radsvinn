@@ -5,12 +5,12 @@ import { loadConfig, validateConfig, isTrue } from '../lib/config.mjs';
 
 function fullEnv(overrides = {}) {
   return {
-    MERCURY_PLANNER_URL: 'http://mercury.railway.internal:8090',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'a'.repeat(40),
+    RADSVINN_PLANNER_URL: 'http://radsvinn.railway.internal:8090',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'a'.repeat(40),
     DASH_GITHUB_CLIENT_ID: 'client-id',
     DASH_GITHUB_CLIENT_SECRET: 'client-secret',
     DASH_SESSION_SECRET: 'b'.repeat(32),
-    DASH_PUBLIC_ORIGIN: 'https://mercury-dash.up.railway.app',
+    DASH_PUBLIC_ORIGIN: 'https://radsvinn-dash.up.railway.app',
     DASH_GITHUB_ORG: 'example-org',
     ...overrides,
   };
@@ -19,7 +19,7 @@ function fullEnv(overrides = {}) {
 describe('lib/config loadConfig', () => {
   test('parses the documented env names with sane defaults', () => {
     const cfg = loadConfig(fullEnv());
-    assert.equal(cfg.plannerUrl, 'http://mercury.railway.internal:8090');
+    assert.equal(cfg.plannerUrl, 'http://radsvinn.railway.internal:8090');
     assert.equal(cfg.githubOrg, 'example-org');
     assert.equal(cfg.mutationsEnabled, true);
     assert.equal(cfg.githubApiBase, 'https://api.github.com');
@@ -42,7 +42,7 @@ describe('lib/config loadConfig', () => {
   });
 
   test('trims whitespace-only tokens/secrets to empty (treated as not configured)', () => {
-    const cfg = loadConfig(fullEnv({ MERCURY_SERVICE_TOKEN_DASHBOARD: '   ' }));
+    const cfg = loadConfig(fullEnv({ RADSVINN_SERVICE_TOKEN_DASHBOARD: '   ' }));
     assert.equal(cfg.plannerToken, '');
   });
 
@@ -62,10 +62,10 @@ describe('lib/config validateConfig', () => {
   });
 
   test('flags a missing planner url/token', () => {
-    const cfg = loadConfig(fullEnv({ MERCURY_PLANNER_URL: '', MERCURY_SERVICE_TOKEN_DASHBOARD: '' }));
+    const cfg = loadConfig(fullEnv({ RADSVINN_PLANNER_URL: '', RADSVINN_SERVICE_TOKEN_DASHBOARD: '' }));
     const problems = validateConfig(cfg);
-    assert.ok(problems.some((p) => p.includes('MERCURY_PLANNER_URL')));
-    assert.ok(problems.some((p) => p.includes('MERCURY_SERVICE_TOKEN_DASHBOARD')));
+    assert.ok(problems.some((p) => p.includes('RADSVINN_PLANNER_URL')));
+    assert.ok(problems.some((p) => p.includes('RADSVINN_SERVICE_TOKEN_DASHBOARD')));
   });
 
   test('flags a session secret shorter than 32 chars', () => {

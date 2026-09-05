@@ -154,7 +154,7 @@ test('wizard view: language is a TWO-option radio (en initial, tr) — "both" is
   assert.equal(scopeBlock.element.type, 'radio_buttons');
   assert.equal(scopeBlock.element.action_id, 'scope_hint');
   assert.deepEqual(scopeBlock.element.options.map((o) => o.value), ['auto', 'single', 'small', 'epic']);
-  assert.equal(scopeBlock.element.initial_option.value, 'auto', 'Let Mercury judge is the default');
+  assert.equal(scopeBlock.element.initial_option.value, 'auto', 'Let Radsvinn judge is the default');
 });
 
 test('envelope dispatch: bare /plan (no text) still opens the wizard, without a pre-fill', async () => {
@@ -1087,7 +1087,7 @@ test('poller reentrancy: pollOnce is the unguarded primitive (two concurrent man
     serviceFetch: makeServiceFetch(),
     slackFetch: slackFetch2,
     connect: () => ({ addEventListener() {}, close() {}, send() {} }),
-    env: { ...FAKE_ENV, MERCURY_SLACK_POLL_MS: '25' },
+    env: { ...FAKE_ENV, RADSVINN_SLACK_POLL_MS: '25' },
     log: SILENT_LOG,
   });
   bridge2.watched.set(planId, { channel: 'C1', requester: 'test-requester', description: 'd', lastStatus: 'creating', messageTs: undefined });

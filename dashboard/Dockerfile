@@ -1,4 +1,4 @@
-# mercury-dashboard — the public BFF over the private Mercury planner.
+# radsvinn-dashboard — the public BFF over the private Radsvinn planner.
 # Zero runtime npm dependencies (node:http/crypto/fs only), so this is a
 # single-stage node:22-slim image with just the source copied in. It is a
 # SEPARATE Railway service from the planner and shares no volume with it

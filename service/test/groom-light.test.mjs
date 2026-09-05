@@ -52,7 +52,7 @@ test('groom wire: the service passes groundingHint AND itemCount into engine.gro
   // engine and record groom's args, exactly as the real engine would receive
   // them. This is the contract engine.groom relies on:
   // groundingHint + itemCount.
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-groom-wire-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-groom-wire-'));
   const fake = createEngine('fake');
   const groomArgs = [];
   const engine = {
@@ -95,8 +95,8 @@ test('groom wire: the service passes groundingHint AND itemCount into engine.gro
 // ---------------------------------------------------------------------------
 
 test('groomMessage: `light` injects the `# GROUNDING` groom directive AFTER `# TOOLS` and BEFORE `Shape APPROVED`; full/absent/unknown byte-identical', (t) => {
-  stashEnv(t, 'MERCURY_AGENT_ALLOWED_TOOLS');
-  delete process.env.MERCURY_AGENT_ALLOWED_TOOLS; // the safe default → the # TOOLS directive is present
+  stashEnv(t, 'RADSVINN_AGENT_ALLOWED_TOOLS');
+  delete process.env.RADSVINN_AGENT_ALLOWED_TOOLS; // the safe default → the # TOOLS directive is present
 
   const light = groomMessage({ ...GROOM_BASE, groundingHint: 'light' });
   assert.match(light, /# GROUNDING/);
@@ -128,16 +128,16 @@ test('groomMessage: `light` injects the `# GROUNDING` groom directive AFTER `# T
 // ---------------------------------------------------------------------------
 
 test('buildClaudeArgs: light GROOM adds a plan-size-scaled --max-turns (base + perItem × n); env-overridable; full/absent groom argv byte-identical', (t) => {
-  const prevBase = process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-  const prevPer = process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
+  const prevBase = process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+  const prevPer = process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
   t.after(() => {
-    if (prevBase === undefined) delete process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-    else process.env.MERCURY_LIGHT_GROOM_BASE_TURNS = prevBase;
-    if (prevPer === undefined) delete process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
-    else process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS = prevPer;
+    if (prevBase === undefined) delete process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+    else process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS = prevBase;
+    if (prevPer === undefined) delete process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
+    else process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS = prevPer;
   });
-  delete process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-  delete process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
 
   const cap = (itemCount) => argValue(
     buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: true, kind: 'groom', groundingHint: 'light', itemCount }),
@@ -155,19 +155,19 @@ test('buildClaudeArgs: light GROOM adds a plan-size-scaled --max-turns (base + p
   assert.equal(cap(1.5), '22', 'non-integer itemCount → fallback n=4 → 22');
 
   // Both new env vars respected.
-  process.env.MERCURY_LIGHT_GROOM_BASE_TURNS = '10';
-  process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS = '5';
+  process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS = '10';
+  process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS = '5';
   assert.equal(cap(4), '30', 'overridden base 10 + perItem 5 × 4');
   assert.equal(cap(undefined), '30', 'the fallback n=4 uses the overridden vars too');
 
   // Junk overrides fall back to the per-var defaults independently.
   for (const junk of ['abc', '0', '-3', '2.5', '']) {
-    process.env.MERCURY_LIGHT_GROOM_BASE_TURNS = junk;
-    process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS = junk;
+    process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS = junk;
+    process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS = junk;
     assert.equal(cap(4), '22', `junk overrides "${junk}" fall back to 6 + 4×4`);
   }
-  delete process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-  delete process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
 
   // full/absent groom → NO cap flag; itemCount is inert without a light hint.
   const fullGroom = buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: true, kind: 'groom', groundingHint: 'full', itemCount: 4 });
@@ -184,11 +184,11 @@ test('buildClaudeArgs: light GROOM adds a plan-size-scaled --max-turns (base + p
 // ---------------------------------------------------------------------------
 
 test('fail-closed (fake): a groom truncated at the cap lands `failed`, never a silent `plan_ready`', async (t) => {
-  // MERCURY_FAKE_GROOM_TRUNCATED=1 makes the fake groom throw a
+  // RADSVINN_FAKE_GROOM_TRUNCATED=1 makes the fake groom throw a
   // max-turns-shaped error (the real engine's runClaudeSpawn rejects on the
   // CLI's non-zero exit) WITHOUT writing plan.json — exactly the fail-closed
   // fail-closed path: the incomplete artifact never reaches plan_ready.
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_GROOM_TRUNCATED: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_GROOM_TRUNCATED: '1' });
   t.after(() => ctx.close());
 
   const res = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', grounding_hint: 'light' });
@@ -249,16 +249,16 @@ test('fail-closed (extractJsonArtifact): a truncated JSON reply (valid prefix, n
 // ---------------------------------------------------------------------------
 
 test('buildClaudeArgs: light GROOM cap table gaps — n=2, a STRING itemCount falls back like any other junk shape, and non-light hints never carry a cap regardless of itemCount', (t) => {
-  const prevBase = process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-  const prevPer = process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
+  const prevBase = process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+  const prevPer = process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
   t.after(() => {
-    if (prevBase === undefined) delete process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-    else process.env.MERCURY_LIGHT_GROOM_BASE_TURNS = prevBase;
-    if (prevPer === undefined) delete process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
-    else process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS = prevPer;
+    if (prevBase === undefined) delete process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+    else process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS = prevBase;
+    if (prevPer === undefined) delete process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
+    else process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS = prevPer;
   });
-  delete process.env.MERCURY_LIGHT_GROOM_BASE_TURNS;
-  delete process.env.MERCURY_LIGHT_GROOM_PER_ITEM_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_BASE_TURNS;
+  delete process.env.RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS;
 
   const cap = (itemCount) => argValue(
     buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: true, kind: 'groom', groundingHint: 'light', itemCount }),
@@ -284,8 +284,8 @@ test('buildClaudeArgs: light GROOM cap table gaps — n=2, a STRING itemCount fa
 });
 
 test('groomMessage: prototype-pollution-shaped groundingHint values inject nothing — the null-prototype map cannot resolve an inherited member', (t) => {
-  stashEnv(t, 'MERCURY_AGENT_ALLOWED_TOOLS');
-  delete process.env.MERCURY_AGENT_ALLOWED_TOOLS;
+  stashEnv(t, 'RADSVINN_AGENT_ALLOWED_TOOLS');
+  delete process.env.RADSVINN_AGENT_ALLOWED_TOOLS;
 
   const noHint = groomMessage({ ...GROOM_BASE });
   // '__proto__' is the sharpest case: on a PLAIN object literal, `obj['__proto__']`
@@ -301,7 +301,7 @@ test('groomMessage: prototype-pollution-shaped groundingHint values inject nothi
 });
 
 test('groom wire: itemCount reflects the skeleton POST-edit count (skeleton_edits), not the original decomposed count', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-groom-edit-wire-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-groom-edit-wire-'));
   const fake = createEngine('fake');
   const groomArgs = [];
   const engine = {
@@ -350,7 +350,7 @@ test('groom wire: itemCount reflects the skeleton POST-edit count (skeleton_edit
 });
 
 test('groom wire: a corrupted plan.skeleton (no items array) never crashes the worker — itemCount is undefined and the cap falls back to n=4', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-groom-noskel-wire-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-groom-noskel-wire-'));
   const fake = createEngine('fake');
   const groomArgs = [];
   const engine = {

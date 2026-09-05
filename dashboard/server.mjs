@@ -1,4 +1,4 @@
-// server.mjs — the Mercury dashboard BFF entry point.
+// server.mjs — the Radsvinn dashboard BFF entry point.
 //
 // `createServer(options)` wires every lib/*.mjs module together behind one
 // node:http request handler and is the thing tests import directly (house
@@ -600,19 +600,19 @@ function boot() {
   const config = loadConfig();
   const problems = validateConfig(config);
   if (problems.length > 0) {
-    for (const p of problems) console.error(`[mercury-dashboard] FATAL: ${p}`);
-    console.error('[mercury-dashboard] FATAL: refusing to boot with invalid configuration.');
+    for (const p of problems) console.error(`[radsvinn-dashboard] FATAL: ${p}`);
+    console.error('[radsvinn-dashboard] FATAL: refusing to boot with invalid configuration.');
     process.exit(1);
   }
   if (config.roleBootstrapIds.size > 0) {
-    console.error(`[mercury-dashboard] WARN: DASH_ROLE_BOOTSTRAP is granting approver+creator to numeric ids [${[...config.roleBootstrapIds].join(',')}] ahead of team creation — clear this variable once mercury-approvers/mercury-creators exist.`);
+    console.error(`[radsvinn-dashboard] WARN: DASH_ROLE_BOOTSTRAP is granting approver+creator to numeric ids [${[...config.roleBootstrapIds].join(',')}] ahead of team creation — clear this variable once the configured approver/creator teams exist.`);
   }
   if (!config.mutationsEnabled) {
-    console.error('[mercury-dashboard] WARN: DASH_MUTATIONS=0 — every mutating /api/* route will 403.');
+    console.error('[radsvinn-dashboard] WARN: DASH_MUTATIONS=0 — every mutating /api/* route will 403.');
   }
   const { server } = createServer({ config });
   server.listen(config.port, '::', () => {
-    console.log(`[mercury-dashboard] listening on [::]:${config.port} -> planner ${config.plannerUrl}`);
+    console.log(`[radsvinn-dashboard] listening on [::]:${config.port} -> planner ${config.plannerUrl}`);
   });
 }
 

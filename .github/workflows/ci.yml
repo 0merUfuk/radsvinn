@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: scan releasable files
-        run: make public-scan
+        run: make public-scan identity-scan
 
   go-checks:
     name: deterministic checks (Go)
@@ -71,8 +71,8 @@ jobs:
         run: for f in service/*.mjs service/test/*.mjs; do node --check "$f"; done
       - name: test (fake engine, plan-gate anchors skipped)
         env:
-          MERCURY_ENGINE: fake
-          MERCURY_SKIP_PLAN_ANCHORS: '1'
+          RADSVINN_ENGINE: fake
+          RADSVINN_SKIP_PLAN_ANCHORS: '1'
         # Use an explicit glob: Node's test runner does not recurse through a
         # bare directory argument on the declared Node 22 runtime.
         run: node --test service/test/*.test.mjs
@@ -95,7 +95,7 @@ jobs:
         # Belt-and-suspenders alongside test/secret-scan.test.mjs: the shipped
         # client bundle must never contain an env name or credential prefix.
         run: |
-          if grep -rInE 'DASH_[A-Z_]+|MERCURY_SERVICE_TOKEN|ghp_|gho_|github_pat_|xoxb-|xapp-' public/; then
+          if grep -rInE 'DASH_[A-Z_]+|(MERCURY|RADSVINN)_[A-Z0-9_]+|ghp_|gho_|github_pat_|xoxb-|xapp-' public/; then
             echo "FATAL: secret-shaped string found in the client bundle"; exit 1
           fi
 

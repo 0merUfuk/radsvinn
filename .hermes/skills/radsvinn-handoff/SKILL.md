@@ -1,13 +1,13 @@
 ---
-name: mercury-handoff
-title: Mercury Session Handoff
-description: Package a Mercury session into a continuation-ready handoff with claims to verify.
+name: radsvinn-handoff
+title: Radsvinn Session Handoff
+description: Package a Radsvinn session into a continuation-ready handoff with claims to verify.
 version: 1.0
 ---
 
-# Mercury Handoff
+# Radsvinn Handoff
 
-Package the current Mercury session so the next session or subagent can resume without re-deriving state.
+Package the current Radsvinn session so the next session or subagent can resume without re-deriving state.
 
 ## Output files
 

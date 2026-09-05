@@ -68,7 +68,7 @@ function slackPosts(fetchFn) {
 // ---------------------------------------------------------------------------
 
 test('surface server: POST /plan stores the descriptor VERBATIM (opaque) and round-trips it via GET /plan/{id} and GET /plans', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // Deliberately carries a key the service has never heard of — opacity
@@ -93,7 +93,7 @@ test('surface server: POST /plan stores the descriptor VERBATIM (opaque) and rou
 });
 
 test('surface server: validation — non-object and oversized surfaces are 400 (both routes); the 1024-byte boundary is exact; legacy plans keep their key-free shape', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // Rejected POST /plan calls create NO plan (and spawn no worker).
@@ -131,7 +131,7 @@ test('surface server: validation — non-object and oversized surfaces are 400 (
 });
 
 test('surface server: POST /plan/{id}/surface — 404 unknown, independent surface/cursor updates, full-status-set cursor validation, empty body 400', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const missing = await postJson(ctx.baseUrl, '/plan/00000000-0000-4000-8000-000000000000/surface', { surface: { type: 'slack', channel: 'C1' } });
@@ -177,7 +177,7 @@ test('surface server: POST /plan/{id}/surface — 404 unknown, independent surfa
 });
 
 test('surface server: POST /plan/{id}/surface is bearer-authed like every other /plan route', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_SERVICE_TOKEN: 'sekret-42' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_SERVICE_TOKEN: 'sekret-42' });
   t.after(() => ctx.close());
   const auth = { Authorization: 'Bearer sekret-42' };
 
@@ -198,7 +198,7 @@ test('surface server: the crash-resume sweep preserves surface + announced_statu
   // service boot still carries its cursor, so a bridge that ALSO restarted
   // sees failed ≠ shape_ready and delivers the ⚠️ (with its Retry button)
   // instead of losing it.
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-surface-persist-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-surface-persist-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
 
   const plansDir = path.join(resultsDir, 'service', 'plans');
@@ -488,9 +488,9 @@ test('surface bridge cursor: silent transient statuses advance the RAM marker bu
 // ---------------------------------------------------------------------------
 
 test('WINDOW A: bridge dies mid-plan → a FRESH bridge resumes from the store and posts the shape to the ORIGINAL channel (no orphan warning)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
-  const bridgeEnv = { ...FAKE_ENV, MERCURY_SERVICE_URL: ctx.baseUrl };
+  const bridgeEnv = { ...FAKE_ENV, RADSVINN_SERVICE_URL: ctx.baseUrl };
 
   // Bridge instance 1: a teammate submits the wizard. The plan starts, the
   // placeholder posts, the surface descriptor + breaking_down cursor land in
@@ -528,9 +528,9 @@ test('WINDOW A: bridge dies mid-plan → a FRESH bridge resumes from the store a
 });
 
 test('WINDOW B: a plan reaches created while the bridge is DOWN → resume + poll still announces it, advances the cursor, and a second resume is idempotent', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
-  const bridgeEnv = { ...FAKE_ENV, MERCURY_SERVICE_URL: ctx.baseUrl };
+  const bridgeEnv = { ...FAKE_ENV, RADSVINN_SERVICE_URL: ctx.baseUrl };
 
   // A surfaced plan, announced through the shape gate (cursor shape_ready —
   // exactly what a live bridge would have recorded after posting the shape).

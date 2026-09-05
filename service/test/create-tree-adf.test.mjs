@@ -29,7 +29,7 @@ function textNodes(node, out = []) {
 }
 
 test('proseToADF via --show-adf: CRLF input normalizes — paragraphs split, bullets list, zero \\r in any text node', (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-adf-crlf-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-adf-crlf-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   // Fixture COPY with a CRLF-structured why on i1: two paragraphs (CRLF

@@ -1,8 +1,8 @@
-# Mercury `.codex/` Ecosystem
+# Radsvinn `.codex/` Ecosystem
 
 *Version 1.0 · 2026-07-18*
 
-This directory is the OpenAI Codex CLI companion to `.claude/`. It contains the same agent operating system for Mercury, rendered in Codex-native formats:
+This directory is the OpenAI Codex CLI companion to `.claude/`. It contains the same agent operating system for Radsvinn, rendered in Codex-native formats:
 
 - `agents/*.toml` — role definitions
 - `rules/*.md` — always-on invariants

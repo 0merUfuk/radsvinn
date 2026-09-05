@@ -24,7 +24,7 @@ function auditFor(resultsDir, planId) {
 }
 
 test('audit: one JSONL line per mutation across all six documented actions; the HTTP response\'s request_id matches the ledger line', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // Plan A: submit -> approve-shape -> create -> created -> cancel -> cancelled.
@@ -104,7 +104,7 @@ test('audit: one JSONL line per mutation across all six documented actions; the 
 });
 
 test('audit: plan.retry is audited (after a groom failure + recovery)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_GROOM_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_GROOM_FAIL: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -114,7 +114,7 @@ test('audit: plan.retry is audited (after a groom failure + recovery)', async (t
   const failed = await pollUntil(() => getJson(ctx.baseUrl, `/plan/${planId}`), (r) => r.body.status !== 'grooming');
   assert.equal(failed.body.status, 'failed');
 
-  process.env.MERCURY_FAKE_GROOM_FAIL = '0'; // "balance topped up" — ctx.close() restores it
+  process.env.RADSVINN_FAKE_GROOM_FAIL = '0'; // "balance topped up" — ctx.close() restores it
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retry.status, 202);
   await pollUntil(() => getJson(ctx.baseUrl, `/plan/${planId}`), (r) => r.body.status !== 'grooming');
@@ -129,9 +129,9 @@ test('audit: plan.retry is audited (after a groom failure + recovery)', async (t
 
 test('audit: actor required on the dashboard token (400 without one), optional and recorded null on the bridge token', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_SERVICE_TOKEN: 'bridge-secret',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'dashboard-secret',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_SERVICE_TOKEN: 'bridge-secret',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'dashboard-secret',
   });
   t.after(() => ctx.close());
 
@@ -172,7 +172,7 @@ test('audit: actor required on the dashboard token (400 without one), optional a
 });
 
 test('audit: malformed or oversized actor 400s regardless of client (not just the dashboard token)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const notAnObject = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', actor: 'just-a-string' });
@@ -202,7 +202,7 @@ test('audit: malformed or oversized actor 400s regardless of client (not just th
 });
 
 test('audit: append failure (audit dir blocked by a file) never blocks the mutation — loud stderr, HTTP response still succeeds', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // Block the exact path appendAudit will try to mkdir -p onto.

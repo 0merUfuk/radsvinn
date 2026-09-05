@@ -7,16 +7,16 @@
 // with `error: "interrupted by restart"` — no zombie workers, no silent
 // resume of a call that never actually finished.
 //
-// `MERCURY_RESULTS_DIR` (relative to the mercury repo root, or an absolute
+// `RADSVINN_RESULTS_DIR` (relative to the radsvinn repo root, or an absolute
 // path) overrides where all of this lives — tests set it to a fresh tmp
 // directory per run for isolation.
 //
 // IMPORTANT — `State` snapshots its results root ONCE, at construction time
-// (`new State()` reads `MERCURY_RESULTS_DIR` right then and never again).
+// (`new State()` reads `RADSVINN_RESULTS_DIR` right then and never again).
 // It does NOT re-read `process.env` on every load/persist call. This isn't
 // stylistic: a fire-and-forget worker (server.mjs never awaits
 // `runXWorker(...)`) can still be running after its HTTP response was sent;
-// if persistence re-read `process.env.MERCURY_RESULTS_DIR` on every write, a
+// if persistence re-read `readEnv('RADSVINN_RESULTS_DIR')` on every write, a
 // *different*, concurrently-running test/request that resets or deletes that
 // env var (e.g. in its own teardown) could redirect an in-flight worker's
 // writes into the wrong directory — concretely, into this repo's own real
@@ -24,11 +24,12 @@
 // `State` instance makes that instance immune to later env mutations by
 // anything else.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const MERCURY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const RADSVINN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Statuses that mean "a worker was actively running this" — never valid to
 // find on disk at boot time, since nothing is running yet.
@@ -41,12 +42,12 @@ export const MERCURY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.
 // re-create or lose the tree's cleanup handle.
 export const TRANSIENT_STATUSES = new Set(['breaking_down', 'grooming', 'creating', 'cancelling']);
 
-/** Reads MERCURY_RESULTS_DIR from the environment RIGHT NOW. Callers that
+/** Reads RADSVINN_RESULTS_DIR from the environment RIGHT NOW. Callers that
  * need a value stable for a whole server/State lifetime should call this
  * once and hold onto the result, not call it repeatedly. */
 export function resultsDir() {
-  const dir = process.env.MERCURY_RESULTS_DIR || 'results';
-  return path.isAbsolute(dir) ? dir : path.join(MERCURY_ROOT, dir);
+  const dir = readEnv('RADSVINN_RESULTS_DIR') || 'results';
+  return path.isAbsolute(dir) ? dir : path.join(RADSVINN_ROOT, dir);
 }
 
 export function plansDir(root = resultsDir()) {

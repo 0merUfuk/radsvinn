@@ -1,4 +1,4 @@
-# Mercury Handoff (Codex)
+# Radsvinn Handoff (Codex)
 
 Package the current session.
 
@@ -14,4 +14,4 @@ Output `tasks/{slug}/HANDOFF.md` with:
 
 Also produce a 20–40 line loader prompt.
 
-Command alias: `mercury-handoff`.
+Command alias: `radsvinn-handoff`.

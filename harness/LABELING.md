@@ -1,11 +1,11 @@
 **Version**: 1.0
 **Created**: 2026-07-03
 **Last Updated**: 2026-07-03
-**Authors:** Mercury maintainers
+**Authors:** Radsvinn maintainers
 
 ---
 
-# Mercury Blind Labeling Guide
+# Radsvinn Blind Labeling Guide
 
 You label the held-out calibration run **blind** (the
 review sheet hides every judge score), then `score-agreement --dod` compares your

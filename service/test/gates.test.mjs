@@ -20,13 +20,13 @@ const PLAN_CHECKS = [
 ];
 
 async function withTreecheck(bin, fn) {
-  const previous = process.env.MERCURY_TREECHECK_BIN;
-  process.env.MERCURY_TREECHECK_BIN = bin;
+  const previous = process.env.RADSVINN_TREECHECK_BIN;
+  process.env.RADSVINN_TREECHECK_BIN = bin;
   try {
     return await fn();
   } finally {
-    if (previous === undefined) delete process.env.MERCURY_TREECHECK_BIN;
-    else process.env.MERCURY_TREECHECK_BIN = previous;
+    if (previous === undefined) delete process.env.RADSVINN_TREECHECK_BIN;
+    else process.env.RADSVINN_TREECHECK_BIN = previous;
   }
 }
 
@@ -43,7 +43,7 @@ async function withEnv(name, value, fn) {
 }
 
 function executable(t, stdout, exitCode = 0) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-checker-shim-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-checker-shim-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'checker');
   fs.writeFileSync(file, `#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(stdout)}, () => process.exit(${exitCode}));\n`);
@@ -52,7 +52,7 @@ function executable(t, stdout, exitCode = 0) {
 }
 
 function argvCapturingExecutable(t, argvPath, stdout) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-checker-argv-shim-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-checker-argv-shim-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'checker');
   fs.writeFileSync(file, [
@@ -67,7 +67,7 @@ function argvCapturingExecutable(t, argvPath, stdout) {
 }
 
 function fixtureRunDir(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-gate-output-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-gate-output-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   fs.copyFileSync(path.join(ROOT, 'fixtures', 'e2e-sample', 'skeleton.json'), path.join(dir, 'skeleton.json'));
   fs.copyFileSync(path.join(ROOT, 'fixtures', 'e2e-sample', 'plan.json'), path.join(dir, 'plan.json'));
@@ -126,10 +126,10 @@ test('/usr/bin/true cannot bypass the real plan gate contract', async (t) => {
   assert.match(result.outputError, /without a valid plan verdict/);
 });
 
-test('MERCURY_SKIP_PLAN_ANCHORS cannot bypass gatePlan outside createServer', async (t) => {
+test('RADSVINN_SKIP_PLAN_ANCHORS cannot bypass gatePlan outside createServer', async (t) => {
   if (!fs.existsSync('/usr/bin/true')) return t.skip('/usr/bin/true is unavailable');
   const runDir = fixtureRunDir(t);
-  const result = await withEnv('MERCURY_SKIP_PLAN_ANCHORS', '1', () => (
+  const result = await withEnv('RADSVINN_SKIP_PLAN_ANCHORS', '1', () => (
     withTreecheck('/usr/bin/true', () => gatePlan(runDir, { reposRoot: runDir }))
   ));
 
@@ -329,7 +329,7 @@ test('plan gate passes the shared default, relative, and absolute coupling-map p
   ];
 
   for (const { label, override, expected } of cases) {
-    const result = await withEnv('MERCURY_COUPLING_MAP', override, () => {
+    const result = await withEnv('RADSVINN_COUPLING_MAP', override, () => {
       assert.equal(resolveCouplingMapPath(), expected, `${label} resolver`);
       return withTreecheck(bin, () => gatePlan(runDir, {
         reposRoot: runDir,
@@ -352,8 +352,8 @@ test('plan gate fails closed when the shared coupling map is missing or unreadab
   fs.mkdirSync(unreadableMap);
 
   for (const mapPath of [missingMap, unreadableMap]) {
-    const result = await withEnv('MERCURY_COUPLING_MAP', mapPath, () => (
-      withEnv('MERCURY_TREECHECK_BIN', undefined, () => gatePlan(runDir, {
+    const result = await withEnv('RADSVINN_COUPLING_MAP', mapPath, () => (
+      withEnv('RADSVINN_TREECHECK_BIN', undefined, () => gatePlan(runDir, {
         reposRoot: runDir,
       }))
     ));

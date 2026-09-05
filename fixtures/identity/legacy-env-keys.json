@@ -1,0 +1,187 @@
+{
+  "MERCURY_AGENT_ALLOWED_TOOLS": [
+    "service/engine.mjs",
+    "service/runtimes/claude.mjs"
+  ],
+  "MERCURY_AGENT_EFFORT": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_EFFORT_DECOMPOSE": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_EFFORT_GROOM": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_MODEL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_MODEL_DECOMPOSE": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_MODEL_GROOM": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_AGENT_PERMISSION_MODE": [
+    "service/runtimes/claude.mjs"
+  ],
+  "MERCURY_AGENT_RUNTIME": [
+    "service/runtimes/claude.mjs",
+    "service/runtimes/registry.mjs"
+  ],
+  "MERCURY_BIND": [
+    "service/server.mjs"
+  ],
+  "MERCURY_COUPLING_MAP": [
+    "service/coupling-map.mjs",
+    "service/engine.mjs"
+  ],
+  "MERCURY_DAILY_HARD_USD": [
+    "service/breakers.mjs"
+  ],
+  "MERCURY_DAILY_SOFT_USD": [
+    "service/breakers.mjs"
+  ],
+  "MERCURY_DEMO_TIMEOUT_MS": [
+    "service/demo.mjs"
+  ],
+  "MERCURY_ENGINE": [
+    "service/server.mjs"
+  ],
+  "MERCURY_FAKE_CLEANUP_FAIL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_CREATE_FAIL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_CREATE_PARTIAL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_GROOM_FAIL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_GROOM_TRUNCATED": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_VERIFY_FAIL": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FAKE_VERIFY_REJECT": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_FETCH_BEFORE_PLAN": [
+    "service/grounding.mjs",
+    "service/server.mjs"
+  ],
+  "MERCURY_GROUNDING_ORG": [
+    "deploy/entrypoint.mjs"
+  ],
+  "MERCURY_GROUNDING_REPOS": [
+    "deploy/entrypoint.mjs",
+    "deploy/lib.mjs"
+  ],
+  "MERCURY_JIRA_CLOUD_ID": [
+    "tools/create-tree.mjs"
+  ],
+  "MERCURY_JIRA_PROJECT": [
+    "internal/checks/precheck.go",
+    "internal/checks/types.go",
+    "tools/create-tree.mjs"
+  ],
+  "MERCURY_JIRA_SITE_URL": [
+    "service/slack-blocks.mjs",
+    "tools/create-tree.mjs"
+  ],
+  "MERCURY_JIRA_TOKEN": [
+    "service/engine.mjs",
+    "service/server.mjs",
+    "tools/create-tree.mjs"
+  ],
+  "MERCURY_LIGHT_GROOM_BASE_TURNS": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_LIGHT_GROOM_PER_ITEM_TURNS": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_LIGHT_MAX_TURNS": [
+    "service/engine.mjs"
+  ],
+  "MERCURY_LLM_PROVIDER": [
+    "service/engine.mjs",
+    "service/openrouter-meter.mjs"
+  ],
+  "MERCURY_OPENROUTER_API_KEY": [
+    "service/engine.mjs",
+    "service/openrouter-meter.mjs"
+  ],
+  "MERCURY_OPENROUTER_REQUEST_TIMEOUT_MS": [
+    "service/openrouter-meter.mjs"
+  ],
+  "MERCURY_PLANNER_URL": [
+    "dashboard/lib/config.mjs"
+  ],
+  "MERCURY_PLAN_BUDGET_USD": [
+    "service/breakers.mjs"
+  ],
+  "MERCURY_PORT": [
+    "service/server.mjs",
+    "service/supervise.mjs"
+  ],
+  "MERCURY_REPOS_ROOT": [
+    "deploy/entrypoint.mjs",
+    "service/gates.mjs",
+    "service/grounding.mjs"
+  ],
+  "MERCURY_REQUIRE_AUTH": [
+    "service/server.mjs"
+  ],
+  "MERCURY_REQUIRE_ENV_ONLY_TOKEN": [
+    "service/server.mjs"
+  ],
+  "MERCURY_RESULTS_DIR": [
+    "deploy/entrypoint.mjs",
+    "service/server.mjs",
+    "service/state.mjs"
+  ],
+  "MERCURY_SERVICE_TOKEN": [
+    "service/engine.mjs",
+    "service/server.mjs",
+    "service/slack.mjs"
+  ],
+  "MERCURY_SERVICE_TOKEN_DASHBOARD": [
+    "dashboard/lib/config.mjs",
+    "service/engine.mjs",
+    "service/server.mjs"
+  ],
+  "MERCURY_SERVICE_URL": [
+    "service/slack.mjs"
+  ],
+  "MERCURY_SKIP_PLAN_ANCHORS": [
+    "service/gates.mjs",
+    "service/server.mjs",
+    "service/slack-blocks.mjs"
+  ],
+  "MERCURY_SLACK_POLL_MS": [
+    "service/slack.mjs"
+  ],
+  "MERCURY_SUPERVISE_BACKOFF_BASE_MS": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_SUPERVISE_BRIDGE_CMD": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_SUPERVISE_HEALTH_POLL_MS": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_SUPERVISE_HEALTH_TIMEOUT_MS": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_SUPERVISE_HEALTH_URL": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_SUPERVISE_SERVER_CMD": [
+    "service/supervise.mjs"
+  ],
+  "MERCURY_TREECHECK_BIN": [
+    "service/gates.mjs"
+  ]
+}

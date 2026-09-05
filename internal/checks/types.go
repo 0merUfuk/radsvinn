@@ -1,4 +1,4 @@
-// Package checks holds Mercury's deterministic, code-not-LLM validation that
+// Package checks holds Radsvinn's deterministic, code-not-LLM validation that
 // gates the Decomposer's skeleton and the Groomer's plan before any LLM judge
 // or human sees the output. It is intentionally dependency-light (stdlib +
 // gopkg.in/yaml.v3) so it ports verbatim into a future Go service.
@@ -270,7 +270,7 @@ var (
 // ENUMS only — the schemas' string PATTERNS are not mirrored here: the one
 // pattern they declare (epic.existing_key `^[A-Z]+-[0-9]+$`) is enforced by the
 // plan gate as the deliberately wider project-agnostic Jira key shape
-// (precheck.go jiraKeyRE — the create tool honors MERCURY_JIRA_PROJECT, so a
+// (precheck.go jiraKeyRE — the create tool honors RADSVINN_JIRA_PROJECT, so a
 // project-pinned mirror would reject other deployments' keys).
 //
 // repoEnum / zoneEnum are the seed's NEUTRAL example vocabulary — a clean,

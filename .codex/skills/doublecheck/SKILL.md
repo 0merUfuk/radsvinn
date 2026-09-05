@@ -1,4 +1,4 @@
-# Mercury Doublecheck (Codex)
+# Radsvinn Doublecheck (Codex)
 
 Run four adversarial passes before any human gate.
 
@@ -15,4 +15,4 @@ Verdict bands:
 
 Re-run only the failed pass after fixes.
 
-Command alias: `mercury-doublecheck`.
+Command alias: `radsvinn-doublecheck`.

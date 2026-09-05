@@ -1,13 +1,13 @@
 ---
-name: mercury-commit
-title: Mercury Conventional Commit Slicer
-description: Slice Mercury changes into conventional commits with mandatory preview, no AI attribution tags.
+name: radsvinn-commit
+title: Radsvinn Conventional Commit Slicer
+description: Slice Radsvinn changes into conventional commits with mandatory preview, no AI attribution tags.
 version: 1.0
 ---
 
-# Mercury Commit
+# Radsvinn Commit
 
-Slice changes into clean, conventional commits. Mercury is a product repo; its history is a changelog.
+Slice changes into clean, conventional commits. Radsvinn is a product repo; its history is a changelog.
 
 ## Procedure
 

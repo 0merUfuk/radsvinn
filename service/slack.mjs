@@ -1,4 +1,4 @@
-// slack.mjs — Slack Socket Mode bridge for the Mercury `POST /plan` service
+// slack.mjs — Slack Socket Mode bridge for the Radsvinn `POST /plan` service
 // (service/server.mjs). Implements the chat surface described in
 // docs/ARCHITECTURE.md: `/plan <ask>` -> approval buttons -> tracker tickets, entirely over
 // an OUTBOUND WebSocket (Socket Mode) so this process needs no public URL /
@@ -76,6 +76,7 @@
 //    regardless of whether they originated from Slack, the Dashboard, or a
 //    direct API call.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { pathToFileURL } from 'node:url';
 import {
   skeletonMessage,
@@ -101,7 +102,7 @@ const RECONNECT_MAX_MS = 30000;
 // prefilled — one click on "Plan it" away from a real ~$1-2 paid planning
 // run, just to read usage. The hint replaces that trap.
 const HELP_TEXT = [
-  '*Mercury* turns a plain-language ask into a Jira ticket tree.',
+  '*Radsvinn* turns a plain-language ask into a Jira ticket tree.',
   '• `/plan <description>` — opens a form to plan that work',
   '• `/plan` — opens the same form, empty',
   '⚠️ Submitting the form (*Plan it*) runs the AI planner and costs money (~$1–2 per run) — only do it for real work.',
@@ -185,9 +186,9 @@ export function createBridge({
     throw new Error('SLACK_APP_TOKEN and SLACK_BOT_TOKEN are both required');
   }
 
-  const serviceUrl = String(env.MERCURY_SERVICE_URL || DEFAULT_SERVICE_URL).replace(/\/+$/, '');
-  const serviceToken = env.MERCURY_SERVICE_TOKEN;
-  const pollMs = Number(env.MERCURY_SLACK_POLL_MS) > 0 ? Number(env.MERCURY_SLACK_POLL_MS) : DEFAULT_POLL_MS;
+  const serviceUrl = String(readEnv('RADSVINN_SERVICE_URL', env) || DEFAULT_SERVICE_URL).replace(/\/+$/, '');
+  const serviceToken = readEnv('RADSVINN_SERVICE_TOKEN', env);
+  const pollMs = Number(readEnv('RADSVINN_SLACK_POLL_MS', env)) > 0 ? Number(readEnv('RADSVINN_SLACK_POLL_MS', env)) : DEFAULT_POLL_MS;
 
   /** plan_id -> {channel, requester, description, lastStatus, messageTs} */
   const watched = new Map();
@@ -231,11 +232,11 @@ export function createBridge({
     try {
       const res = await servicePost(`/plan/${planId}/surface`, payload);
       if (!res.ok) {
-        log.error(`[mercury-slack] surface write for ${planId} refused: ${(res.body && res.body.error) || `HTTP ${res.status}`}`);
+        log.error(`[radsvinn-slack] surface write for ${planId} refused: ${(res.body && res.body.error) || `HTTP ${res.status}`}`);
       }
       return res.ok;
     } catch (err) {
-      log.error(`[mercury-slack] surface write for ${planId} failed: ${err.message}`);
+      log.error(`[radsvinn-slack] surface write for ${planId} failed: ${err.message}`);
       return false;
     }
   }
@@ -253,7 +254,7 @@ export function createBridge({
     });
     const body = await safeJson(res);
     if (!body || body.ok !== true) {
-      log.error(`[mercury-slack] Slack API ${method} failed: ${(body && body.error) || res.status}`);
+      log.error(`[radsvinn-slack] Slack API ${method} failed: ${(body && body.error) || res.status}`);
     }
     return body;
   }
@@ -397,9 +398,9 @@ export function createBridge({
     const block = (values[blockId] || {})[actionId];
     const raw = block && block.selected_option ? block.selected_option.value : undefined;
     const value = typeof raw === 'string' && raw.length > 0 ? raw : fallback;
-    log.error(`[mercury-slack] wizard ${label} extracted: ${raw === undefined ? '(missing)' : raw} (raw block present: ${block ? 'yes' : 'no'}) → using "${value}"`);
+    log.error(`[radsvinn-slack] wizard ${label} extracted: ${raw === undefined ? '(missing)' : raw} (raw block present: ${block ? 'yes' : 'no'}) → using "${value}"`);
     if (!block) {
-      log.error(`[mercury-slack] wizard "${blockId}" block MISSING from view.state.values (present keys: ${Object.keys(values).join(', ') || '(none)'}) — falling back to "${fallback}"`);
+      log.error(`[radsvinn-slack] wizard "${blockId}" block MISSING from view.state.values (present keys: ${Object.keys(values).join(', ') || '(none)'}) — falling back to "${fallback}"`);
     }
     return value;
   }
@@ -470,7 +471,7 @@ export function createBridge({
         ...(channel ? { surface: { type: 'slack', channel } } : {}),
       });
     } catch (err) {
-      log.error(`[mercury-slack] POST /plan failed: ${err.message}`);
+      log.error(`[radsvinn-slack] POST /plan failed: ${err.message}`);
       await postMessage(channel, { text: `⚠️ Failed to start planning: ${err.message}` });
       return;
     }
@@ -533,7 +534,7 @@ export function createBridge({
     const user = (payload.user && (payload.user.user_name || payload.user.username || payload.user.id)) || 'someone';
 
     if (!planId) {
-      log.error(`[mercury-slack] block_action ${actionId} arrived with no plan id value — ignoring`);
+      log.error(`[radsvinn-slack] block_action ${actionId} arrived with no plan id value — ignoring`);
       return;
     }
 
@@ -554,11 +555,11 @@ export function createBridge({
         // posts the eventual `cancelled` / `failed` outcome.
         res = await servicePost(`/plan/${planId}/cancel`, {});
       } else {
-        log.error(`[mercury-slack] unknown block_action_id "${actionId}" — ignoring`);
+        log.error(`[radsvinn-slack] unknown block_action_id "${actionId}" — ignoring`);
         return;
       }
     } catch (err) {
-      log.error(`[mercury-slack] ${actionId} service call failed: ${err.message}`);
+      log.error(`[radsvinn-slack] ${actionId} service call failed: ${err.message}`);
       await postMessage(channel, { text: `⚠️ ${actionLabel(actionId)} failed: ${err.message}` });
       return;
     }
@@ -623,7 +624,7 @@ export function createBridge({
         // no-op that just looked broken). Nudge the user toward the one
         // command that exists — ephemerally (only the invoker sees it, never
         // a channel post).
-        send(buildAck(envelope, ackPayload('Mercury only responds to `/plan` — try `/plan help`.')));
+        send(buildAck(envelope, ackPayload('Radsvinn only responds to `/plan` — try `/plan help`.')));
         return;
       }
       await handleSlashCommand(envelope, send);
@@ -635,7 +636,7 @@ export function createBridge({
       if (ptype === 'block_actions') {
         send({ envelope_id: envelope.envelope_id }); // ack immediately, no payload
         await handleBlockAction(envelope).catch((err) => {
-          log.error(`[mercury-slack] interactive handler error: ${err.message}`);
+          log.error(`[radsvinn-slack] interactive handler error: ${err.message}`);
         });
         return;
       }
@@ -643,7 +644,7 @@ export function createBridge({
         // handleViewSubmission owns the ack (empty to close, or errors to
         // keep the modal open) — it MUST send within 3s.
         await handleViewSubmission(envelope, send).catch((err) => {
-          log.error(`[mercury-slack] view_submission handler error: ${err.message}`);
+          log.error(`[radsvinn-slack] view_submission handler error: ${err.message}`);
           send({ envelope_id: envelope.envelope_id });
         });
         return;
@@ -663,7 +664,7 @@ export function createBridge({
       try {
         res = await serviceGet(`/plan/${planId}`);
       } catch (err) {
-        log.error(`[mercury-slack] poll GET /plan/${planId} failed: ${err.message}`);
+        log.error(`[radsvinn-slack] poll GET /plan/${planId} failed: ${err.message}`);
         continue;
       }
       if (!res.ok || !res.body) continue;
@@ -677,7 +678,7 @@ export function createBridge({
         // change instead of on every poll, and never touch the cursor — the
         // client that owns the surface owns the delivery cursor too.
         entry.lastStatus = status;
-        log.error(`[mercury-slack] plan ${planId} changed to ${status} but has no Slack channel on file (resumed after a restart) — skipping post`);
+        log.error(`[radsvinn-slack] plan ${planId} changed to ${status} but has no Slack channel on file (resumed after a restart) — skipping post`);
         if (STOP_WATCHING_STATUSES.has(status)) watched.delete(planId);
         continue;
       }
@@ -727,12 +728,12 @@ export function createBridge({
             await uploadPlanFile({
               channel: entry.channel,
               threadTs: posted.ts,
-              filename: `mercury-plan-${String(planId).slice(0, 8)}.txt`,
+              filename: `radsvinn-plan-${String(planId).slice(0, 8)}.txt`,
               title: 'Full plan — read before Create',
               content: renderPlanText(plan),
             });
           } catch (err) {
-            log.error(`[mercury-slack] full-plan file upload failed for ${planId}: ${err.message}`);
+            log.error(`[radsvinn-slack] full-plan file upload failed for ${planId}: ${err.message}`);
             // missing_scope is the one failure a re-try can never fix — name
             // the exact scope and who must act, so the warning is actionable
             // instead of a dead generic error. The GET /plan pointer stays in
@@ -744,7 +745,7 @@ export function createBridge({
               thread_ts: posted.ts,
               text: `⚠️ could not attach the full plan file (${err.message})${scopeHint} — full content: GET /plan/${planId}`,
             }).catch((warnErr) => {
-              log.error(`[mercury-slack] could not post the upload-failure thread warning for ${planId}: ${warnErr.message}`);
+              log.error(`[radsvinn-slack] could not post the upload-failure thread warning for ${planId}: ${warnErr.message}`);
             });
           }
         } else {
@@ -755,11 +756,11 @@ export function createBridge({
           // failure (likely, if the channel itself is the problem) must
           // never take down the poller.
           const reason = (posted && posted.error) || 'no ok/ts from chat.postMessage';
-          log.error(`[mercury-slack] plan ${planId} plan_ready message returned no ts (${reason}) — skipping the full-plan file upload`);
+          log.error(`[radsvinn-slack] plan ${planId} plan_ready message returned no ts (${reason}) — skipping the full-plan file upload`);
           const fallback = await postMessage(entry.channel, {
             text: `⚠️ plan ${planId} is ready for review but its gate message could not be rendered (${reason}) — full content: GET /plan/${planId} on the service host.`,
           }).catch((fallbackErr) => {
-            log.error(`[mercury-slack] could not post the plan_ready fallback for ${planId}: ${fallbackErr.message}`);
+            log.error(`[radsvinn-slack] could not post the plan_ready fallback for ${planId}: ${fallbackErr.message}`);
             return undefined;
           });
           // A DELIVERED fallback counts as the (degraded) announcement: a
@@ -844,7 +845,7 @@ export function createBridge({
     try {
       res = await serviceGet('/plans');
     } catch (err) {
-      log.error(`[mercury-slack] boot-resume GET /plans failed: ${err.message}`);
+      log.error(`[radsvinn-slack] boot-resume GET /plans failed: ${err.message}`);
       return;
     }
     if (!res.ok || !res.body || !Array.isArray(res.body.plans)) return;
@@ -930,7 +931,7 @@ export function createBridge({
     setTimeout(() => {
       reconnectScheduled = false;
       reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
-      openSocket().catch((err) => log.error(`[mercury-slack] reconnect attempt failed: ${err.message}`));
+      openSocket().catch((err) => log.error(`[radsvinn-slack] reconnect attempt failed: ${err.message}`));
     }, delay);
   }
 
@@ -939,17 +940,17 @@ export function createBridge({
     try {
       envelope = JSON.parse(raw);
     } catch {
-      log.error('[mercury-slack] received a non-JSON frame — ignoring');
+      log.error('[radsvinn-slack] received a non-JSON frame — ignoring');
       return;
     }
     if (!envelope || typeof envelope !== 'object') return;
 
     if (envelope.type === 'hello') {
-      log.error('[mercury-slack] Socket Mode connection established');
+      log.error('[radsvinn-slack] Socket Mode connection established');
       return;
     }
     if (envelope.type === 'disconnect') {
-      log.error(`[mercury-slack] Slack requested a disconnect (${envelope.reason || 'unknown reason'}) — opening a fresh connection`);
+      log.error(`[radsvinn-slack] Slack requested a disconnect (${envelope.reason || 'unknown reason'}) — opening a fresh connection`);
       scheduleReconnect({ immediate: true });
       return;
     }
@@ -958,7 +959,7 @@ export function createBridge({
       try {
         socket.send(JSON.stringify(ack));
       } catch (err) {
-        log.error(`[mercury-slack] failed to send envelope ack: ${err.message}`);
+        log.error(`[radsvinn-slack] failed to send envelope ack: ${err.message}`);
       }
     });
   }
@@ -971,7 +972,7 @@ export function createBridge({
 
     const opened = await openConnectionUrl();
     if (!opened.ok || !opened.url) {
-      log.error(`[mercury-slack] apps.connections.open failed: ${opened.error || 'no url returned'}`);
+      log.error(`[radsvinn-slack] apps.connections.open failed: ${opened.error || 'no url returned'}`);
       scheduleReconnect();
       return;
     }
@@ -984,13 +985,13 @@ export function createBridge({
       reconnectDelay = RECONNECT_BASE_MS; // reset backoff on a successful connect
     });
     socket.addEventListener('message', (event) => {
-      handleFrame(String(event.data), socket).catch((err) => log.error(`[mercury-slack] frame handling error: ${err.message}`));
+      handleFrame(String(event.data), socket).catch((err) => log.error(`[radsvinn-slack] frame handling error: ${err.message}`));
     });
     socket.addEventListener('close', () => {
       if (ws === socket) scheduleReconnect();
     });
     socket.addEventListener('error', (event) => {
-      log.error(`[mercury-slack] socket error: ${(event && event.message) || 'unknown'}`);
+      log.error(`[radsvinn-slack] socket error: ${(event && event.message) || 'unknown'}`);
     });
 
     // Open-then-close (never the reverse), so a disconnect frame can never
@@ -1025,7 +1026,7 @@ export function createBridge({
         if (polling) return;
         polling = true;
         pollOnce()
-          .catch((err) => log.error(`[mercury-slack] poll error: ${err.message}`))
+          .catch((err) => log.error(`[radsvinn-slack] poll error: ${err.message}`))
           .finally(() => { polling = false; });
       }, pollMs);
       await openSocket();
@@ -1054,20 +1055,20 @@ async function main() {
     bridge = createBridge({ env: process.env, log: console });
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error(`[mercury-slack] ${err.message} — exiting.`);
+    console.error(`[radsvinn-slack] ${err.message} — exiting.`);
     process.exit(1);
     return;
   }
   await bridge.start();
   // eslint-disable-next-line no-console
-  console.error(`[mercury-slack] bridge started (service=${process.env.MERCURY_SERVICE_URL || DEFAULT_SERVICE_URL})`);
+  console.error(`[radsvinn-slack] bridge started (service=${readEnv('RADSVINN_SERVICE_URL') || DEFAULT_SERVICE_URL})`);
 }
 
 const isMain = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 if (isMain) {
   main().catch((err) => {
     // eslint-disable-next-line no-console
-    console.error(`[mercury-slack] fatal: ${err.message}`);
+    console.error(`[radsvinn-slack] fatal: ${err.message}`);
     process.exit(1);
   });
 }

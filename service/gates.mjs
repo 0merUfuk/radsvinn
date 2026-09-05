@@ -14,10 +14,11 @@
 // ALSO emit the documented JSON shape; empty/garbled/shape-less stdout fails
 // closed instead of turning a broken or substituted checker into a green gate.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { MERCURY_ROOT } from './state.mjs';
+import { RADSVINN_ROOT } from './state.mjs';
 import { reposRoot } from './grounding.mjs';
 import { resolveCouplingMapPath } from './coupling-map.mjs';
 
@@ -37,7 +38,7 @@ function treecheckCommand(override) {
     }
     return [override.command, [...override.args]];
   }
-  const bin = process.env.MERCURY_TREECHECK_BIN;
+  const bin = readEnv('RADSVINN_TREECHECK_BIN');
   if (bin) return [bin, []];
   return [DEFAULT_TREECHECK_COMMAND.command, [...DEFAULT_TREECHECK_COMMAND.args]];
 }
@@ -131,7 +132,7 @@ function runTreecheck(modeArgs, stdinData, options = {}) {
   return new Promise((resolve) => {
     const [cmd, baseArgs] = treecheckCommand(options.checkerCommand);
     const child = spawn(cmd, [...baseArgs, ...modeArgs], {
-      cwd: MERCURY_ROOT,
+      cwd: RADSVINN_ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -173,7 +174,7 @@ function runTreecheck(modeArgs, stdinData, options = {}) {
 /**
  * Runs `treecheck -mode=skeleton` over `<runDir>/skeleton.json`.
  * `checkerCommand` is an explicit test/demo seam; ordinary service calls omit
- * it and retain the MERCURY_TREECHECK_BIN override (or the default Go command).
+ * it and retain the RADSVINN_TREECHECK_BIN override (or the default Go command).
  */
 export async function gateSkeleton(runDir, options = {}) {
   const skeletonPath = path.join(runDir, 'skeleton.json');
@@ -190,7 +191,7 @@ export async function gateSkeleton(runDir, options = {}) {
  * Runs `treecheck -mode=plan` with the resolved repos root and coupling-map
  * path over `<runDir>/plan.json`. The repos root comes from `grounding.mjs` —
  * the laptop default is the sibling `../grounding` checkout; the container
- * overrides via `MERCURY_REPOS_ROOT` (the persistent volume's `/data/repos`).
+ * overrides via `RADSVINN_REPOS_ROOT` (the persistent volume's `/data/repos`).
  * The coupling-map resolver is shared with prompt injection, so the model and
  * deterministic gate cannot silently evaluate different maps. Explicit
  * `checkerCommand` and `couplingMapPath` options are test/demo seams; ordinary
@@ -198,7 +199,7 @@ export async function gateSkeleton(runDir, options = {}) {
  *
  * `skipPlanGate: true` skips the ENTIRE plan gate, returning
  * `{ok:true, skipped:true}`. gatePlan deliberately never reads
- * MERCURY_SKIP_PLAN_ANCHORS itself: createServer may translate that legacy,
+ * RADSVINN_SKIP_PLAN_ANCHORS itself: createServer may translate that legacy,
  * misleadingly named environment knob only for fake-engine test instances.
  */
 export async function gatePlan(runDir, options = {}) {

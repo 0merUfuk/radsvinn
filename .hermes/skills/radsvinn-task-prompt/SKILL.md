@@ -1,11 +1,11 @@
 ---
-name: mercury-task-prompt
-title: Mercury Task Prompt Generator
-description: Generate a scoped, gated manager brief for Mercury work with mandatory acknowledgment sentinel.
+name: radsvinn-task-prompt
+title: Radsvinn Task Prompt Generator
+description: Generate a scoped, gated manager brief for Radsvinn work with mandatory acknowledgment sentinel.
 version: 1.0
 ---
 
-# Mercury Task Prompt
+# Radsvinn Task Prompt
 
 Generate a scoped, gated manager brief. Output to `tasks/task-prompts/{date}-{slug}.md`.
 

@@ -9,7 +9,7 @@
 // keyword match pulled in the right tables/services/zones.
 
 import path from 'node:path';
-import { loadConfig, loadYaml, parseAsk, computeSlice, matchAsk, parseArgs, MERCURY_ROOT } from './lib.mjs';
+import { loadConfig, loadYaml, parseAsk, computeSlice, matchAsk, parseArgs, RADSVINN_ROOT } from './lib.mjs';
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -20,7 +20,7 @@ function main() {
   if (args.text) {
     askText = String(args.text);
   } else if (args.ask) {
-    const askPath = path.isAbsolute(args.ask) ? args.ask : path.resolve(MERCURY_ROOT, args.ask);
+    const askPath = path.isAbsolute(args.ask) ? args.ask : path.resolve(RADSVINN_ROOT, args.ask);
     askText = parseAsk(askPath).body;
   } else {
     console.error('usage: node slice-map.mjs (--ask <file> | --text "<ask>")');

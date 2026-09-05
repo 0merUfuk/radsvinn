@@ -46,14 +46,14 @@ export function isPagePath(pathname) {
 const SHELL = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mercury</title>
+<title>Radsvinn</title>
 <link rel="stylesheet" href="/assets/fonts/fonts.css">
 <link rel="stylesheet" href="/assets/app.css">
 <script src="/assets/app.js" defer></script>
 </head><body>
 <div class="shell">
   <nav class="sidebar" aria-label="Primary">
-    <div class="brand">MERCURY<span class="brand-sub">planning lens</span></div>
+    <div class="brand">RADSVINN<span class="brand-sub">planning lens</span></div>
     <div class="navgroup"><div class="navlabel">Plan</div>
       <a href="/plans" data-nav="/plans"><span class="ni" aria-hidden="true">&#9636;</span><span class="nl">Plans</span></a>
       <a href="/plans/new" data-nav="/plans/new"><span class="ni" aria-hidden="true">&#65291;</span><span class="nl">New plan</span></a></div>

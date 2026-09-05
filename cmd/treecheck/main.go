@@ -1,4 +1,4 @@
-// Command treecheck runs Mercury's deterministic validation over a skeleton or
+// Command treecheck runs Radsvinn's deterministic validation over a skeleton or
 // a groomed plan read from stdin and emits the verdict as JSON on stdout.
 //
 // Usage:
@@ -20,7 +20,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/0merUfuk/mercury/internal/checks"
+	"github.com/0merUfuk/radsvinn/internal/checks"
 )
 
 func main() {
@@ -29,9 +29,9 @@ func main() {
 
 func run() int {
 	mode := flag.String("mode", "", "validation mode: skeleton | plan (required)")
-	thresholdsPath := flag.String("thresholds", "internal/checks/thresholds.yaml", "path to thresholds.yaml (default: relative to the mercury module root / CWD)")
+	thresholdsPath := flag.String("thresholds", "internal/checks/thresholds.yaml", "path to thresholds.yaml (default: relative to the radsvinn module root / CWD)")
 	couplingMapPath := flag.String("coupling-map", "coupling-map.yaml", "path to coupling-map.yaml (plan mode; default: relative to CWD)")
-	reposRoot := flag.String("repos-root", "..", "root under which <repo>/<path> code anchors are resolved (plan mode; default: the grounding workspace, one level above the mercury CWD)")
+	reposRoot := flag.String("repos-root", "..", "root under which <repo>/<path> code anchors are resolved (plan mode; default: the grounding workspace, one level above the radsvinn CWD)")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -107,7 +107,7 @@ func emitJSON(v any) {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `treecheck — Mercury deterministic skeleton/plan validation (stdin → stdout JSON)
+	fmt.Fprint(os.Stderr, `treecheck — Radsvinn deterministic skeleton/plan validation (stdin → stdout JSON)
 
 Usage:
   treecheck -mode=skeleton [-thresholds=<path>] < skeleton.json
@@ -118,9 +118,9 @@ Flags:
   -thresholds    path to thresholds.yaml   (default "internal/checks/thresholds.yaml")
   -coupling-map  path to coupling-map.yaml (default "coupling-map.yaml", plan mode)
   -repos-root    root for resolving <repo>/<path> code anchors
-                 (default "..", the grounding workspace above the mercury CWD, plan mode)
+                 (default "..", the grounding workspace above the radsvinn CWD, plan mode)
 
-Defaults assume the process runs from the mercury module root.
+Defaults assume the process runs from the radsvinn module root.
 
 Output:
   skeleton  a single Verdict object

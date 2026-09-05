@@ -1,8 +1,8 @@
-# Mercury Task Prompt
+# Radsvinn Task Prompt
 
-Generate a scoped, gated manager brief for Mercury work.
+Generate a scoped, gated manager brief for Radsvinn work.
 
-**When to use:** starting any Mercury initiative or continuation.
+**When to use:** starting any Radsvinn initiative or continuation.
 **Output:** `tasks/task-prompts/{date}-{slug}.md` + inline loader prompt.
 
 ## Steps

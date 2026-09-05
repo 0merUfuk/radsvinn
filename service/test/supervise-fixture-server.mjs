@@ -3,7 +3,7 @@
 // exits 0 on SIGTERM. NOT a test file (no .test.mjs suffix).
 import http from 'node:http';
 
-const port = Number(process.env.MERCURY_PORT || 0);
+const port = Number(process.env.RADSVINN_PORT || 0);
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end('{"ok":true}');

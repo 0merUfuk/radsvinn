@@ -1,4 +1,4 @@
-# Mercury Planner Service — `POST /plan`
+# Radsvinn Planner Service — `POST /plan`
 
 The `POST /plan` HTTP API that the Slack bridge and the Dashboard both sit on top of as thin
 clients. It wraps the planning pipeline (the agent prompts in `prompts/*.md`) behind three
@@ -29,25 +29,25 @@ Go toolchain may download declared build dependencies before the checker starts.
 
 ```bash
 node service/server.mjs
-# [mercury] planner service listening on http://127.0.0.1:8090 (engine=real)
+# [radsvinn] planner service listening on http://127.0.0.1:8090 (engine=real)
 ```
 
 For lower-level development, this reduced fake-mode command skips the entire plan gate because
 it does not prepare grounding checkouts. It is not equivalent to `make demo`:
 
 ```bash
-MERCURY_ENGINE=fake MERCURY_SKIP_PLAN_ANCHORS=1 node service/server.mjs
+RADSVINN_ENGINE=fake RADSVINN_SKIP_PLAN_ANCHORS=1 node service/server.mjs
 ```
 
 **Fail-closed boot:** when run directly, the server refuses to boot (`FATAL` on stderr, exit
 1, before listening) if the effective bind is **not loopback** (`127.0.0.1`/`localhost`/`::1`)
-while `MERCURY_SERVICE_TOKEN` is missing or empty — a non-loopback listen with no real token is
+while `RADSVINN_SERVICE_TOKEN` is missing or empty — a non-loopback listen with no real token is
 an unauthenticated planner API. Loopback binds keep the old behavior (an empty token still only
-warns). `MERCURY_REQUIRE_AUTH=1` is the belt-and-suspenders (the container sets it): a real
+warns). `RADSVINN_REQUIRE_AUTH=1` is the belt-and-suspenders (the container sets it): a real
 token is required regardless of bind — in-container the server binds `127.0.0.1` (the bridge is
 its only client), and this gate is what protects anyone who later flips the bind.
-`MERCURY_REQUIRE_ENV_ONLY_TOKEN=1` (also set by the container) additionally makes boot fatal
-when the local `~/.config/mercury/jira-token` file fallback exists — on a server the Jira
+`RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1` (also set by the container) additionally makes boot fatal
+when either `~/.config/radsvinn/jira-token` or the legacy `~/.config/mercury/jira-token` exists — on a server the Jira
 credential must be env-only (the file is a laptop convenience).
 
 For the one-container deployment (supervisor, entrypoint, volume layout) see
@@ -59,34 +59,35 @@ For the one-container deployment (supervisor, entrypoint, volume layout) see
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `MERCURY_BIND` | `127.0.0.1` | Bind address |
-| `MERCURY_PORT` | `8090` | Listen port |
-| `MERCURY_ENGINE` | `real` | `fake` uses the deterministic fixture engine; anything else uses the real `claude` engine |
-| `MERCURY_SERVICE_TOKEN` | unset | If set, every `/plan*` route requires `Authorization: Bearer <token>` (401 otherwise). `/healthz` is always open |
-| `MERCURY_RESULTS_DIR` | `results` (relative to the repo root) | Absolute paths are used as-is — tests point this at a fresh tmp dir per run |
-| `MERCURY_TREECHECK_BIN` | unset | Path to a prebuilt `treecheck` binary; falls back to `go run ./cmd/treecheck` |
-| `MERCURY_SKIP_PLAN_ANCHORS` | unset | Keep unset for `make demo` and live use; `1` skips the entire plan gate and is only for reduced direct-server tests without grounding checkouts |
-| `MERCURY_PLAN_BUDGET_USD` | `10` | Per-plan cost cap; checked before every Groom call and before a paid Phase-1 regeneration, never Create |
-| `MERCURY_DAILY_SOFT_USD` | `50` | Current UTC-day spend — logs one warning per boot past this |
-| `MERCURY_DAILY_HARD_USD` | `100` | Current UTC-day spend — refuses any new engine call past this |
-| `MERCURY_LLM_PROVIDER` | `anthropic` | Real-engine provider selector: `anthropic` or `openrouter`; setting a provider key alone does not switch providers |
+| `RADSVINN_BIND` | `127.0.0.1` | Bind address |
+| `RADSVINN_PORT` | `8090` | Listen port |
+| `RADSVINN_ENGINE` | `real` | `fake` uses deterministic fixtures; anything else uses the selected agent runtime |
+| `RADSVINN_AGENT_RUNTIME` | `claude` | `claude` or `codex` through shared orchestration; full live Codex plan validity remains unproven |
+| `RADSVINN_SERVICE_TOKEN` | unset | If set, every `/plan*` route requires `Authorization: Bearer <token>` (401 otherwise). `/healthz` is always open |
+| `RADSVINN_RESULTS_DIR` | `results` (relative to the repo root) | Absolute paths are used as-is — tests point this at a fresh tmp dir per run |
+| `RADSVINN_TREECHECK_BIN` | unset | Path to a prebuilt `treecheck` binary; falls back to `go run ./cmd/treecheck` |
+| `RADSVINN_SKIP_PLAN_ANCHORS` | unset | Keep unset for `make demo` and live use; `1` skips the entire plan gate and is only for reduced direct-server tests without grounding checkouts |
+| `RADSVINN_PLAN_BUDGET_USD` | `10` | Per-plan cost cap; checked before every Groom call and before a paid Phase-1 regeneration, never Create |
+| `RADSVINN_DAILY_SOFT_USD` | `50` | Current UTC-day spend — logs one warning per boot past this |
+| `RADSVINN_DAILY_HARD_USD` | `100` | Current UTC-day spend — refuses any new engine call past this |
+| `RADSVINN_LLM_PROVIDER` | `anthropic` | Real-engine provider selector: `anthropic` or `openrouter`; setting a provider key alone does not switch providers |
 | `ANTHROPIC_API_KEY` | unset | Default-provider key (bring your own) |
-| `MERCURY_OPENROUTER_API_KEY` | unset | Required when `MERCURY_LLM_PROVIDER=openrouter` |
-| `MERCURY_AGENT_PERMISSION_MODE` | `default` | Real engine only — see "Security posture" below before changing |
-| `MERCURY_AGENT_ALLOWED_TOOLS` | `Read,Grep,Glob` | Real engine only — comma-separated `--allowedTools` list; see below |
-| `MERCURY_AGENT_MODEL` / `MERCURY_AGENT_EFFORT` | `opus` / `xhigh` | Real engine only — the shared model/effort for both planning phases |
-| `MERCURY_AGENT_MODEL_DECOMPOSE` / `MERCURY_AGENT_MODEL_GROOM` | unset | Per-seat model override — beats the shared knob. Decompose may run a cheaper/faster model (a bad shape costs ~the phase-1 spend and one Reject click — the human gate is its safety net); groom should keep the strongest (it writes the verified anchors + coupling-zone routing the create gate approves). A non-default-provider model must be calibrated before it is trusted (see the harness) |
-| `MERCURY_AGENT_EFFORT_DECOMPOSE` / `MERCURY_AGENT_EFFORT_GROOM` | unset | Per-seat effort override, same resolution ladder (seat → shared → default) |
-| `MERCURY_LIGHT_MAX_TURNS` | `12` | Real engine only — the flat Phase-1 `--max-turns` cap when `grounding_hint` is `light` (see "Grounding depth" below). Non-integer/non-positive values fall back to the default |
-| `MERCURY_LIGHT_GROOM_BASE_TURNS` / `MERCURY_LIGHT_GROOM_PER_ITEM_TURNS` | `6` / `4` | Real engine only — the light-mode Groom cap is `base + per-item × item count`. Invalid values fall back independently; `full` plans pass no cap in either phase |
-| `MERCURY_COUPLING_MAP` | `coupling-map.yaml` (relative to the repo root) | One resolved path shared by real-engine prompt injection and the deterministic plan gate. Phase 1 receives the map verbatim under `# COUPLING MAP`; Groom resumes that session and does not re-inject it. Prompt loading is cached per path and degrades to a read-it-yourself note when missing/unreadable/oversized, while the later plan gate independently fails closed if it cannot load the configured map |
-| `MERCURY_REQUIRE_AUTH` | unset | `1` makes a missing/empty `MERCURY_SERVICE_TOKEN` FATAL at direct boot regardless of bind (the container sets it) — see "Fail-closed boot" above |
-| `MERCURY_REQUIRE_ENV_ONLY_TOKEN` | unset | `1` makes a present `~/.config/mercury/jira-token` file fallback FATAL at direct boot (the container sets it; env-only credential rule) |
-| `MERCURY_REPOS_ROOT` | sibling checkout (container: `/data/repos`) | Where the grounding repos live — feeds the plan gate's `-repos-root`, the agent's `--add-dir`, and fetch-before-plan (`service/grounding.mjs`) |
-| `MERCURY_FETCH_BEFORE_PLAN` | unset | `1` runs `git fetch origin main` in every grounding repo before phase 1. The result rides the plan as `grounding` (`{ok, detail?}`, via `GET /plan/{id}`); a failed fetch NEVER blocks the plan but renders `⚠ grounding fetch failed — anchors may validate against stale code` at the Slack shape gate |
+| `RADSVINN_OPENROUTER_API_KEY` | unset | Required when `RADSVINN_LLM_PROVIDER=openrouter` |
+| `RADSVINN_AGENT_PERMISSION_MODE` | `default` | Real engine only — see "Security posture" below before changing |
+| `RADSVINN_AGENT_ALLOWED_TOOLS` | `Read,Grep,Glob` | Real engine only — comma-separated `--allowedTools` list; see below |
+| `RADSVINN_AGENT_MODEL` / `RADSVINN_AGENT_EFFORT` | `opus` / `xhigh` | Real engine only — the shared model/effort for both planning phases |
+| `RADSVINN_AGENT_MODEL_DECOMPOSE` / `RADSVINN_AGENT_MODEL_GROOM` | unset | Per-seat model override — beats the shared knob. Decompose may run a cheaper/faster model (a bad shape costs ~the phase-1 spend and one Reject click — the human gate is its safety net); groom should keep the strongest (it writes the verified anchors + coupling-zone routing the create gate approves). A non-default-provider model must be calibrated before it is trusted (see the harness) |
+| `RADSVINN_AGENT_EFFORT_DECOMPOSE` / `RADSVINN_AGENT_EFFORT_GROOM` | unset | Per-seat effort override, same resolution ladder (seat → shared → default) |
+| `RADSVINN_LIGHT_MAX_TURNS` | `12` | Real engine only — the flat Phase-1 `--max-turns` cap when `grounding_hint` is `light` (see "Grounding depth" below). Non-integer/non-positive values fall back to the default |
+| `RADSVINN_LIGHT_GROOM_BASE_TURNS` / `RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS` | `6` / `4` | Real engine only — the light-mode Groom cap is `base + per-item × item count`. Invalid values fall back independently; `full` plans pass no cap in either phase |
+| `RADSVINN_COUPLING_MAP` | `coupling-map.yaml` (relative to the repo root) | One resolved path shared by real-engine prompt injection and the deterministic plan gate. Phase 1 receives the map verbatim under `# COUPLING MAP`; Groom resumes that session and does not re-inject it. Prompt loading is cached per path and degrades to a read-it-yourself note when missing/unreadable/oversized, while the later plan gate independently fails closed if it cannot load the configured map |
+| `RADSVINN_REQUIRE_AUTH` | unset | `1` makes a missing/empty `RADSVINN_SERVICE_TOKEN` FATAL at direct boot regardless of bind (the container sets it) — see "Fail-closed boot" above |
+| `RADSVINN_REQUIRE_ENV_ONLY_TOKEN` | unset | `1` makes either `~/.config/radsvinn/jira-token` or legacy `~/.config/mercury/jira-token` FATAL at direct boot, even with env auth populated (the container sets it; env-only credential rule) |
+| `RADSVINN_REPOS_ROOT` | sibling checkout (container: `/data/repos`) | Where the grounding repos live — feeds the plan gate's `-repos-root`, the agent's `--add-dir`, and fetch-before-plan (`service/grounding.mjs`) |
+| `RADSVINN_FETCH_BEFORE_PLAN` | unset | `1` runs `git fetch origin main` in every grounding repo before phase 1. The result rides the plan as `grounding` (`{ok, detail?}`, via `GET /plan/{id}`); a failed fetch NEVER blocks the plan but renders `⚠ grounding fetch failed — anchors may validate against stale code` at the Slack shape gate |
 
-The **tracker target** (`MERCURY_JIRA_SITE_URL`, `MERCURY_JIRA_CLOUD_ID`, `MERCURY_JIRA_PROJECT`,
-`MERCURY_JIRA_TOKEN`) is consumed by the deterministic writer (`tools/create-tree.mjs`), not by
+The **tracker target** (`RADSVINN_JIRA_SITE_URL`, `RADSVINN_JIRA_CLOUD_ID`, `RADSVINN_JIRA_PROJECT`,
+`RADSVINN_JIRA_TOKEN`) is consumed by the deterministic writer (`tools/create-tree.mjs`), not by
 the planner server directly. The service can boot without it; the writer fails closed at a
 Jira network operation if its Cloud ID or token is missing. Project and site fall back to
 `PROJ` and `https://your-domain.atlassian.net`, respectively, so live deployments must set both
@@ -129,8 +130,8 @@ Every completed planning call (decompose and groom, both engines) emits one stru
 **stderr** — so latency/cost decisions become evidence-based instead of guessed:
 
 ```text
-[mercury] phase=decompose plan=1b7c9a2e model=sonnet grounding=light turns=9 duration_ms=48231 cost_usd=0.41
-[mercury] phase=groom plan=1b7c9a2e model=opus grounding=light turns=6 duration_ms=93518 cost_usd=0.88
+[radsvinn] phase=decompose plan=1b7c9a2e model=sonnet grounding=light turns=9 duration_ms=48231 cost_usd=0.41
+[radsvinn] phase=groom plan=1b7c9a2e model=opus grounding=light turns=6 duration_ms=93518 cost_usd=0.88
 ```
 
 `phase` ∈ `decompose` \| `groom`; `plan` is the plan id's first 8 chars; `model` is the ACTUAL
@@ -140,7 +141,7 @@ CLI's `--output-format json` result (`?` when not reported); `duration_ms` prefe
 own `duration_ms` and falls back to the service's wall-clock measurement of the spawn;
 `cost_usd` is the accounting charge recorded for the call: direct Anthropic mode uses the
 Claude CLI's reported `total_cost_usd`, while OpenRouter mode accepts only reconciled provider
-receipts from Mercury's metering proxy. The fake engine returns deterministic accounting stubs
+receipts from Radsvinn's metering proxy. The fake engine returns deterministic accounting stubs
 (`model=fake turns=1 duration_ms=0`) so breaker and persistence tests stay byte-reproducible;
 those stubs do not represent provider or model spend.
 
@@ -199,8 +200,8 @@ OPT-IN way to say "this task doesn't need deep code grounding": it injects a `# 
 directive into the phase-1 message (`engine.mjs` — minimize exploration, lean on the coupling
 map and the ask, read at most a few files to confirm the most important anchors, fewer
 `code_anchors` acceptable) AND adds deterministic `--max-turns` bounds to both model phases:
-Phase 1 uses the flat `MERCURY_LIGHT_MAX_TURNS` cap (default 12), while Groom uses the
-plan-size-scaled `MERCURY_LIGHT_GROOM_BASE_TURNS + MERCURY_LIGHT_GROOM_PER_ITEM_TURNS × item
+Phase 1 uses the flat `RADSVINN_LIGHT_MAX_TURNS` cap (default 12), while Groom uses the
+plan-size-scaled `RADSVINN_LIGHT_GROOM_BASE_TURNS + RADSVINN_LIGHT_GROOM_PER_ITEM_TURNS × item
 count` cap (defaults 6 + 4 × item count). **The default is `full`,
 deliberately — the failure mode is asymmetric**: over-grounding a simple ask wastes a few
 dollars and minutes, but under-grounding a task that needed it silently degrades ticket quality
@@ -230,12 +231,12 @@ response is `application/json`.
 
 ## Reduced curl walkthrough (fake engine)
 
-This lower-level path deliberately sets `MERCURY_SKIP_PLAN_ANCHORS=1`; it demonstrates the HTTP
+This lower-level path deliberately sets `RADSVINN_SKIP_PLAN_ANCHORS=1`; it demonstrates the HTTP
 contract but does not run the plan gate. Use `make demo` for the complete release-candidate
 walkthrough.
 
 ```bash
-MERCURY_ENGINE=fake MERCURY_SKIP_PLAN_ANCHORS=1 node service/server.mjs &
+RADSVINN_ENGINE=fake RADSVINN_SKIP_PLAN_ANCHORS=1 node service/server.mjs &
 
 curl -s -X POST localhost:8090/plan \
   -H 'Content-Type: application/json' \
@@ -270,7 +271,7 @@ The fake engine never spawns `claude`, calls a model or tracker, or reads their 
 the bundled deterministic offline fixtures at `fixtures/e2e-sample/{skeleton,plan}.json` into
 the plan's run directory and returns canned accounting charges (`0.8 / 0.9 / 0` for
 phase1/groom/create; no provider spend). The surrounding service still honors its grounding
-configuration, so a direct fake-server run with `MERCURY_FETCH_BEFORE_PLAN=1` may perform git
+configuration, so a direct fake-server run with `RADSVINN_FETCH_BEFORE_PLAN=1` may perform git
 network I/O. Use `make demo` for the isolated walkthrough: it prepares local temporary
 grounding and makes no application calls to external services (the Go toolchain may still
 resolve declared build dependencies on a cold cache). CI's `offline-fixtures` job
@@ -282,7 +283,7 @@ directory, state, gate, and breaker paths; only external model/tracker calls are
 ## State / file layout
 
 ```text
-${MERCURY_RESULTS_DIR:-results}/
+${RADSVINN_RESULTS_DIR:-results}/
 ├── agent/
 │   └── svc-<plan_id>/
 │       ├── skeleton.json
@@ -298,7 +299,7 @@ The created-record's shape: `{cloudId, project, created[], links[], ts}` — plu
 plan's epic carries `existing_key` (attach mode: the tree is parented under an epic ALREADY on
 the board instead of creating a new one), `attached_epic: {temp_id, key, summary}`.
 `attached_epic` sits deliberately OUTSIDE `created[]`: cleanup/cancel sweep `created[]` only, so
-an epic Mercury did not create is never transitioned; `--verify` still reads the attached key
+an epic Radsvinn did not create is never transitioned; `--verify` still reads the attached key
 back, labeled `[attached]`.
 
 The plan record additionally carries the two client-owned surface fields when a surface client
@@ -325,8 +326,8 @@ API callers); running it through a Bash-capable agent under `bypassPermissions` 
 prompt-injection → arbitrary-command → credential-exfiltration chain the sandbox is defending
 against.
 
-**What this build actually does** (`MERCURY_AGENT_PERMISSION_MODE` /
-`MERCURY_AGENT_ALLOWED_TOOLS`, defaulting to `default` / `Read,Grep,Glob`, applied uniformly to
+**What this build actually does** (`RADSVINN_AGENT_PERMISSION_MODE` /
+`RADSVINN_AGENT_ALLOWED_TOOLS`, defaulting to `default` / `Read,Grep,Glob`, applied uniformly to
 both model phases):
 
 - Phase 1 and Phase 2 (decompose/groom) run with the model unable to execute Bash. Their
@@ -343,8 +344,9 @@ both model phases):
   epic: the key is GET-verified first (must exist, must be an Epic — a typo'd key dies before
   any write), no epic is created, and the record carries `attached_epic` outside `created[]`
   (see the file-layout note). The tool loads the Jira token itself (env or
-  `~/.config/mercury/jira-token`) along with the tracker target
-  (`MERCURY_JIRA_SITE_URL`/`MERCURY_JIRA_CLOUD_ID`/`MERCURY_JIRA_PROJECT`); the service never
+  `~/.config/radsvinn/jira-token`, with read-only fallback to `~/.config/mercury/jira-token`
+  only when the canonical path is absent) along with the tracker target
+  (`RADSVINN_JIRA_SITE_URL`/`RADSVINN_JIRA_CLOUD_ID`/`RADSVINN_JIRA_PROJECT`); the service never
   touches a credential, and no untrusted text goes anywhere near an LLM in the only step that
   writes to the tracker.
 - The same control-plane path powers the advisory `duplicate_search` attached at `plan_ready`
@@ -368,13 +370,13 @@ services.
 ## Tests
 
 ```bash
-MERCURY_ENGINE=fake MERCURY_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs
+RADSVINN_ENGINE=fake RADSVINN_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs
 ```
 
 No live-service calls, no `claude`, no tokens. HTTP lifecycle tests boot a real server on an
 ephemeral loopback port against a fresh tmp results directory (`os.tmpdir()`) and tear it down
 afterward. Most direct HTTP lifecycle tests skip the plan gate via
-`MERCURY_SKIP_PLAN_ANCHORS=1`; their skeleton gate is the REAL
+`RADSVINN_SKIP_PLAN_ANCHORS=1`; their skeleton gate is the REAL
 `go run ./cmd/treecheck -mode=skeleton` (no Go mocking). The demo and dedicated
 gate/regeneration tests prepare grounding inputs and exercise real plan mode.
 
@@ -388,7 +390,7 @@ gate/regeneration tests prepare grounding inputs and exercise real plan mode.
 
 The flow: a teammate runs `/plan` (optionally with text) in Slack → the bridge acks the command
 and opens a **modal wizard** (`views.open`) with an **Output language** radio (English · Türkçe),
-a **How big is this?** scope radio (Let Mercury judge · One ticket · A few tickets (2-5) · Large
+a **How big is this?** scope radio (Let Radsvinn judge · One ticket · A few tickets (2-5) · Large
 — the requester owns the epic-ization decision, see `scope_hint` above), a **Code grounding**
 radio (Full — read the code (default) · Light — skip deep code reading; see `grounding_hint`
 above — Full stays the initial option because Light must be an explicit per-plan choice), and a
@@ -457,7 +459,7 @@ chars it drops whole lines with an in-fence `… (+N more lines — full shape v
 marker.
 
 Either way, the bridge then uploads the **full, untruncated plan text** as a `.txt` file into
-the gate message's own thread (`mercury-plan-<id8>.txt`, via Slack's external-upload flow:
+the gate message's own thread (`radsvinn-plan-<id8>.txt`, via Slack's external-upload flow:
 `files.getUploadURLExternal` → raw bytes → `files.completeUploadExternal`). The gate message
 always posts first and is never blocked by the upload; if the upload fails (missing scope,
 network), the bridge logs to stderr and posts a ⚠️ thread reply pointing at `GET /plan/{id}`
@@ -473,7 +475,7 @@ plain-text fallback pointer posts to the channel so the plan is never silently i
 machine-checked. The shape message's context reads `structure ✅ · correctness NOT auto-checked
 — you are the reviewer` (structure is all treecheck ever verified at the skeleton stage); the
 groomed message renders `structure ✅ · anchors resolve ✅` only for a present, non-skipped,
-passing plan-gate result. The `MERCURY_SKIP_PLAN_ANCHORS=1` skip covers the *whole* plan gate
+passing plan-gate result. The `RADSVINN_SKIP_PLAN_ANCHORS=1` skip covers the *whole* plan gate
 (structure included), so a skipped gate renders `plan gate skipped — not checked`, and a missing
 gate result fails closed to `plan gate: no result — not checked` — no ✅ of any kind prints when
 nothing was checked. The `correctness NOT auto-checked — you are the reviewer` tail survives in
@@ -541,9 +543,9 @@ cancelled state.
 |---|---|---|
 | `SLACK_APP_TOKEN` | — (required) | App-level token, `xapp-…` — used at boot for `apps.connections.open` and again on every reconnect |
 | `SLACK_BOT_TOKEN` | — (required) | Bot token, `xoxb-…` — used for every `chat.postMessage` / `chat.update` call |
-| `MERCURY_SERVICE_URL` | `http://127.0.0.1:8090` | Base URL of the planner service (`service/server.mjs`) this bridge drives |
-| `MERCURY_SERVICE_TOKEN` | unset | If the planner service has `MERCURY_SERVICE_TOKEN` set, pass the same value here so the bridge's calls carry `Authorization: Bearer <token>` |
-| `MERCURY_SLACK_POLL_MS` | `7000` | How often the bridge polls `GET /plan/{id}` for every plan it's watching |
+| `RADSVINN_SERVICE_URL` | `http://127.0.0.1:8090` | Base URL of the planner service (`service/server.mjs`) this bridge drives |
+| `RADSVINN_SERVICE_TOKEN` | unset | If the planner service has `RADSVINN_SERVICE_TOKEN` set, pass the same value here so the bridge's calls carry `Authorization: Bearer <token>` |
+| `RADSVINN_SLACK_POLL_MS` | `7000` | How often the bridge polls `GET /plan/{id}` for every plan it's watching |
 
 The bridge exits `1` immediately if `SLACK_APP_TOKEN` or `SLACK_BOT_TOKEN` is missing — both are
 required; there is no anonymous mode.
@@ -553,7 +555,7 @@ required; there is no anonymous mode.
 Two processes — the planner service, then the bridge:
 
 ```bash
-set -a; . ~/.config/mercury/service.env; set +a; node service/server.mjs &
+set -a; . ~/.config/radsvinn/service.env; set +a; node service/server.mjs &
 node service/slack.mjs
 ```
 

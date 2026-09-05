@@ -15,7 +15,7 @@ import (
 // issue-key form (PROJECT-123: uppercase alnum project key starting with a
 // letter, dash, digits). Mirrors tools/create-tree.mjs's JIRA_KEY_RE, and is
 // deliberately WIDER than the schemas' `^[A-Z]+-[0-9]+$`: the create tool honors
-// MERCURY_JIRA_PROJECT, so pinning one project at this gate would reject keys a
+// RADSVINN_JIRA_PROJECT, so pinning one project at this gate would reject keys a
 // differently-keyed deployment legitimately attaches to.
 var jiraKeyRE = regexp.MustCompile(`^[A-Z][A-Z0-9]*-[0-9]+$`)
 

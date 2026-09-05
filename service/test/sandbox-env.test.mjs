@@ -17,11 +17,11 @@ import path from 'node:path';
 import { sandboxedEnv, buildClaudeArgs } from '../engine.mjs';
 
 const STRIPPED = [
-  'MERCURY_JIRA_TOKEN',
+  'RADSVINN_JIRA_TOKEN',
   'SLACK_APP_TOKEN',
   'SLACK_BOT_TOKEN',
-  'MERCURY_SERVICE_TOKEN',
-  'MERCURY_SERVICE_TOKEN_DASHBOARD',
+  'RADSVINN_SERVICE_TOKEN',
+  'RADSVINN_SERVICE_TOKEN_DASHBOARD',
   'GITHUB_TOKEN',
   'GH_TOKEN',
 ];
@@ -31,22 +31,22 @@ test('sandboxedEnv: sandboxedEnv strips every non-Anthropic credential and the w
     ANTHROPIC_API_KEY: 'sk-keep-me',
     PATH: '/usr/bin',
     HOME: '/data/home',
-    MERCURY_RESULTS_DIR: '/data/results',
-    MERCURY_JIRA_TOKEN: 'leak-1',
+    RADSVINN_RESULTS_DIR: '/data/results',
+    RADSVINN_JIRA_TOKEN: 'leak-1',
     SLACK_APP_TOKEN: 'xapp-leak',
     SLACK_BOT_TOKEN: 'xoxb-leak',
     // NOT on the explicit strip list — the SLACK_ prefix rule must catch
     // future family additions by construction, never by remembering.
     SLACK_SIGNING_SECRET: 'sig-leak',
     SLACK_WEBHOOK_URL: 'https://hooks.slack.com/leak',
-    MERCURY_SERVICE_TOKEN: 'bearer-leak',
-    MERCURY_SERVICE_TOKEN_DASHBOARD: 'dashboard-bearer-leak',
+    RADSVINN_SERVICE_TOKEN: 'bearer-leak',
+    RADSVINN_SERVICE_TOKEN_DASHBOARD: 'dashboard-bearer-leak',
     GITHUB_TOKEN: 'ghp-leak',
     GH_TOKEN: 'gho-leak',
     RAILWAY_ENVIRONMENT: 'production',
     RAILWAY_PROJECT_ID: 'proj-123',
-    RAILWAY_SERVICE_NAME: 'mercury',
-    MERCURY_OPENROUTER_API_KEY: 'or-leak',
+    RAILWAY_SERVICE_NAME: 'radsvinn',
+    RADSVINN_OPENROUTER_API_KEY: 'or-leak',
     OPENROUTER_API_KEY: 'or-alt-leak',
   };
   const out = sandboxedEnv(input);
@@ -54,8 +54,8 @@ test('sandboxedEnv: sandboxedEnv strips every non-Anthropic credential and the w
   assert.equal(out.ANTHROPIC_API_KEY, 'sk-keep-me', 'the one credential the agent needs survives');
   assert.equal(out.PATH, '/usr/bin');
   assert.equal(out.HOME, '/data/home');
-  assert.equal(out.MERCURY_RESULTS_DIR, '/data/results');
-  assert.equal(out.MERCURY_OPENROUTER_API_KEY, undefined, 'the source OpenRouter credential is never useful to a child');
+  assert.equal(out.RADSVINN_RESULTS_DIR, '/data/results');
+  assert.equal(out.RADSVINN_OPENROUTER_API_KEY, undefined, 'the source OpenRouter credential is never useful to a child');
   assert.equal(out.OPENROUTER_API_KEY, undefined, 'alternate source key name is stripped too');
 
   for (const key of STRIPPED) {
@@ -67,28 +67,28 @@ test('sandboxedEnv: sandboxedEnv strips every non-Anthropic credential and the w
   }
 
   // Pure: the input env is never mutated.
-  assert.equal(input.MERCURY_JIRA_TOKEN, 'leak-1');
+  assert.equal(input.RADSVINN_JIRA_TOKEN, 'leak-1');
   assert.equal(input.RAILWAY_PROJECT_ID, 'proj-123');
   assert.equal(input.SLACK_SIGNING_SECRET, 'sig-leak');
 });
 
 test('buildClaudeArgs: buildClaudeArgs adds --add-dir <reposRoot> only when the resolved root exists', (t) => {
-  const prev = process.env.MERCURY_REPOS_ROOT;
+  const prev = process.env.RADSVINN_REPOS_ROOT;
   t.after(() => {
-    if (prev === undefined) delete process.env.MERCURY_REPOS_ROOT;
-    else process.env.MERCURY_REPOS_ROOT = prev;
+    if (prev === undefined) delete process.env.RADSVINN_REPOS_ROOT;
+    else process.env.RADSVINN_REPOS_ROOT = prev;
   });
 
-  const existing = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-repos-root-'));
+  const existing = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-repos-root-'));
   t.after(() => fs.rmSync(existing, { recursive: true, force: true }));
 
-  process.env.MERCURY_REPOS_ROOT = existing;
+  process.env.RADSVINN_REPOS_ROOT = existing;
   const withRoot = buildClaudeArgs({ userMessage: 'm', sessionId: 's', resume: false });
   const flagIdx = withRoot.indexOf('--add-dir');
   assert.notEqual(flagIdx, -1, '--add-dir present when the root exists');
   assert.equal(withRoot[flagIdx + 1], existing, 'and it names the resolved root');
 
-  process.env.MERCURY_REPOS_ROOT = path.join(existing, 'does-not-exist');
+  process.env.RADSVINN_REPOS_ROOT = path.join(existing, 'does-not-exist');
   const withoutRoot = buildClaudeArgs({ userMessage: 'm', sessionId: 's', resume: false });
   assert.equal(withoutRoot.indexOf('--add-dir'), -1, 'no --add-dir when the root is missing — legacy argv preserved');
 });
@@ -103,15 +103,15 @@ function argValue(args, flag) {
   return i >= 0 ? args[i + 1] : undefined;
 }
 
-test('seat config: MERCURY_AGENT_MODEL_DECOMPOSE applies to phase1 ONLY; groom falls back to the shared/default ladder', (t) => {
+test('seat config: RADSVINN_AGENT_MODEL_DECOMPOSE applies to phase1 ONLY; groom falls back to the shared/default ladder', (t) => {
   const prev = { ...process.env };
-  t.after(() => { for (const k of ['MERCURY_AGENT_MODEL_DECOMPOSE', 'MERCURY_AGENT_MODEL_GROOM', 'MERCURY_AGENT_MODEL', 'MERCURY_AGENT_EFFORT_DECOMPOSE', 'MERCURY_AGENT_EFFORT']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
+  t.after(() => { for (const k of ['RADSVINN_AGENT_MODEL_DECOMPOSE', 'RADSVINN_AGENT_MODEL_GROOM', 'RADSVINN_AGENT_MODEL', 'RADSVINN_AGENT_EFFORT_DECOMPOSE', 'RADSVINN_AGENT_EFFORT']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
 
-  process.env.MERCURY_AGENT_MODEL_DECOMPOSE = 'sonnet';
-  process.env.MERCURY_AGENT_EFFORT_DECOMPOSE = 'high';
-  delete process.env.MERCURY_AGENT_MODEL;
-  delete process.env.MERCURY_AGENT_EFFORT;
-  delete process.env.MERCURY_AGENT_MODEL_GROOM;
+  process.env.RADSVINN_AGENT_MODEL_DECOMPOSE = 'sonnet';
+  process.env.RADSVINN_AGENT_EFFORT_DECOMPOSE = 'high';
+  delete process.env.RADSVINN_AGENT_MODEL;
+  delete process.env.RADSVINN_AGENT_EFFORT;
+  delete process.env.RADSVINN_AGENT_MODEL_GROOM;
 
   const p1 = buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: false, kind: 'phase1' });
   assert.equal(argValue(p1, '--model'), 'sonnet', 'decompose seat takes the seat-specific model');
@@ -122,40 +122,40 @@ test('seat config: MERCURY_AGENT_MODEL_DECOMPOSE applies to phase1 ONLY; groom f
   assert.equal(argValue(groom, '--effort'), 'xhigh');
 });
 
-test('seat config: the shared MERCURY_AGENT_MODEL still governs BOTH seats when no seat override exists (existing deploys unchanged)', (t) => {
+test('seat config: the shared RADSVINN_AGENT_MODEL still governs BOTH seats when no seat override exists (existing deploys unchanged)', (t) => {
   const prev = { ...process.env };
-  t.after(() => { for (const k of ['MERCURY_AGENT_MODEL_DECOMPOSE', 'MERCURY_AGENT_MODEL_GROOM', 'MERCURY_AGENT_MODEL']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
+  t.after(() => { for (const k of ['RADSVINN_AGENT_MODEL_DECOMPOSE', 'RADSVINN_AGENT_MODEL_GROOM', 'RADSVINN_AGENT_MODEL']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
 
-  process.env.MERCURY_AGENT_MODEL = 'opus';
-  delete process.env.MERCURY_AGENT_MODEL_DECOMPOSE;
-  delete process.env.MERCURY_AGENT_MODEL_GROOM;
+  process.env.RADSVINN_AGENT_MODEL = 'opus';
+  delete process.env.RADSVINN_AGENT_MODEL_DECOMPOSE;
+  delete process.env.RADSVINN_AGENT_MODEL_GROOM;
 
   for (const kind of ['phase1', 'groom']) {
     const args = buildClaudeArgs({ userMessage: 'm', sessionId: 's-2', resume: kind === 'groom', kind });
     assert.equal(argValue(args, '--model'), 'opus', `${kind}: shared override honored`);
   }
   // Seat override beats shared; shared beats default.
-  process.env.MERCURY_AGENT_MODEL_GROOM = 'opus';
-  process.env.MERCURY_AGENT_MODEL_DECOMPOSE = 'sonnet';
+  process.env.RADSVINN_AGENT_MODEL_GROOM = 'opus';
+  process.env.RADSVINN_AGENT_MODEL_DECOMPOSE = 'sonnet';
   assert.equal(argValue(buildClaudeArgs({ userMessage: 'm', sessionId: 's-2', resume: false, kind: 'phase1' }), '--model'), 'sonnet');
   assert.equal(argValue(buildClaudeArgs({ userMessage: 'm', sessionId: 's-2', resume: true, kind: 'groom' }), '--model'), 'opus');
 });
 
 test('seat config: an omitted kind resolves as the GROOM seat (fail toward the stronger model, never the cheaper one)', (t) => {
   const prev = { ...process.env };
-  t.after(() => { for (const k of ['MERCURY_AGENT_MODEL_DECOMPOSE']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
-  process.env.MERCURY_AGENT_MODEL_DECOMPOSE = 'sonnet';
+  t.after(() => { for (const k of ['RADSVINN_AGENT_MODEL_DECOMPOSE']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
+  process.env.RADSVINN_AGENT_MODEL_DECOMPOSE = 'sonnet';
   const args = buildClaudeArgs({ userMessage: 'm', sessionId: 's-3', resume: false });
   assert.equal(argValue(args, '--model'), 'opus', 'no kind → groom-seat resolution → the strong default');
 });
 
-test('OpenRouter runtime can force a stable CLI alias despite inherited Mercury model overrides', (t) => {
-  const previous = process.env.MERCURY_AGENT_MODEL_DECOMPOSE;
+test('OpenRouter runtime can force a stable CLI alias despite inherited Radsvinn model overrides', (t) => {
+  const previous = process.env.RADSVINN_AGENT_MODEL_DECOMPOSE;
   t.after(() => {
-    if (previous === undefined) delete process.env.MERCURY_AGENT_MODEL_DECOMPOSE;
-    else process.env.MERCURY_AGENT_MODEL_DECOMPOSE = previous;
+    if (previous === undefined) delete process.env.RADSVINN_AGENT_MODEL_DECOMPOSE;
+    else process.env.RADSVINN_AGENT_MODEL_DECOMPOSE = previous;
   });
-  process.env.MERCURY_AGENT_MODEL_DECOMPOSE = 'claude-expensive-override';
+  process.env.RADSVINN_AGENT_MODEL_DECOMPOSE = 'claude-expensive-override';
   const args = buildClaudeArgs({ userMessage: 'm', sessionId: 's', resume: false, kind: 'phase1', modelOverride: 'opus' });
   assert.equal(argValue(args, '--model'), 'opus', 'provider runtime owns the alias; inherited provider-unaware override cannot escape');
 });

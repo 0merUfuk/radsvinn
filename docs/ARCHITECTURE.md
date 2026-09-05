@@ -1,17 +1,17 @@
-# Mercury — Architecture
+# Radsvinn — Architecture
 
-This document describes how Mercury is built: its components, process topology, data flow,
+This document describes how Radsvinn is built: its components, process topology, data flow,
 stores, and the safety spine that lets an LLM-driven planner be trusted with real work. It
-is written for someone standing Mercury up against **their own** organization.
+is written for someone standing Radsvinn up against **their own** organization.
 
 For setup, see [GETTING-STARTED.md](GETTING-STARTED.md). For the product overview, see the
 [top-level README](../README.md).
 
 ---
 
-## 1. What Mercury is
+## 1. What Radsvinn is
 
-Mercury is a **planner**: it turns a plain-language work request into a coupling-aware
+Radsvinn is a **planner**: it turns a plain-language work request into a coupling-aware
 ticket tree. The product is one LLM planning agent wrapped in a **deterministic control
 plane** — the LLM proposes structure and content; a compiled Go gate validates it; a no-LLM
 tool writes the tracker. On a first-pass success, two human approve-gates bracket two LLM
@@ -33,6 +33,12 @@ The design principle: **every place trust matters is code or a human, never a mo
   and a `dashboard/Dockerfile` (single-stage Node).
 
 ---
+
+The real engine selects `claude` (default) or `codex` with `RADSVINN_AGENT_RUNTIME`.
+Both adapters use the shared orchestration, gates, and human approvals. Adapter tests
+use synthetic events; they do not establish full live Codex plan validity. Provider
+selection and the metering proxy apply to Claude; Codex owns its provider path and
+reports unavailable currency telemetry as unknown.
 
 ## 3. Process topology
 
@@ -130,7 +136,7 @@ Each of these is *one choice*, wired behind the service — not a hard requireme
   updating messages and uploading the full plan as a file at the gate.
 - **Model provider — the agent runtime.** The default is Anthropic (bring your own key). An
   opt-in metered provider path exists behind a loopback proxy, selected explicitly with
-  `MERCURY_LLM_PROVIDER=openrouter`; setting its key alone does not switch providers. A
+  `RADSVINN_LLM_PROVIDER=openrouter`; setting its key alone does not switch providers. A
   non-default provider must be calibrated before it is trusted on the shipped path.
 - **Issue tracker — Jira Cloud REST**, via `tools/create-tree.mjs` only (create / link /
   comment / verify / cleanup). The tracker target (site, cloud ID, project) is configuration.
@@ -142,7 +148,7 @@ Each of these is *one choice*, wired behind the service — not a hard requireme
 
 ## 7. Data stores
 
-Mercury is **file-based** on a persistent volume (no SQL in this iteration):
+Radsvinn is **file-based** on a persistent volume (no SQL in this iteration):
 
 - `results/service/plans/<id>.json` — plan state, written atomically (tmp + rename).
 - `daily-spend-<date>.json` — the rolling daily breaker total.
@@ -170,9 +176,9 @@ and token are required for live operations, while `PROJ` and
 `https://your-domain.atlassian.net` are clearly-example project/site fallbacks that production
 deployments must override. There are no baked source-organization targets.
 
-- **Planner:** the model provider key, the tracker target (`MERCURY_JIRA_SITE_URL`,
-  `MERCURY_JIRA_CLOUD_ID`, `MERCURY_JIRA_PROJECT`), the Jira token, the grounding source
-  (`MERCURY_GROUNDING_ORG`, additive `MERCURY_GROUNDING_REPOS` extensions, the repos root), the
+- **Planner:** the model provider key, the tracker target (`RADSVINN_JIRA_SITE_URL`,
+  `RADSVINN_JIRA_CLOUD_ID`, `RADSVINN_JIRA_PROJECT`), the Jira token, the grounding source
+  (`RADSVINN_GROUNDING_ORG`, additive `RADSVINN_GROUNDING_REPOS` extensions, the repos root), the
   coupling-map path, spend caps, the bind/port, the agent model/effort seats, and the service
   token.
 - **Dashboard:** the GitHub OAuth app, the session secret, the public origin, the GitHub org
@@ -180,7 +186,7 @@ deployments must override. There are no baked source-organization targets.
 
 **Secrets never live in repo files.** Tokens come from the runtime environment (or, for local
 convenience only, an operator file outside the repo). On a server the Jira credential must be
-env-only; `MERCURY_REQUIRE_ENV_ONLY_TOKEN=1` enforces that file-fallback posture at boot. The
+env-only; `RADSVINN_REQUIRE_ENV_ONLY_TOKEN=1` enforces that file-fallback posture at boot. The
 writer fails closed on missing live credentials when it reaches a Jira network operation. The
 full tables are in [GETTING-STARTED.md](GETTING-STARTED.md).
 
@@ -188,8 +194,8 @@ full tables are in [GETTING-STARTED.md](GETTING-STARTED.md).
 
 ## 9. The coupling map — the instance's ground truth
 
-The coupling map (`coupling-map.yaml`, path overridable via `MERCURY_COUPLING_MAP`) is where
-Mercury's real domain value lives. It is a hand-seeded (later, generated) description of your
+The coupling map (`coupling-map.yaml`, path overridable via `RADSVINN_COUPLING_MAP`) is where
+Radsvinn's real domain value lives. It is a hand-seeded (later, generated) description of your
 system's hazards:
 
 - **No-go zones** — multi-writer hazard areas (for example, a `shared-write` zone: a column
@@ -220,7 +226,7 @@ future R1/R2 work, not current behavior.
   the dashboard tests (against fake GitHub + fake planner, with a bundle secret-scan), and an
   offline dry-run surface check. The real agent, real tracker, metered provider, the live
   Slack socket, and dashboard OAuth are exercised by opt-in / live checks, not the default CI.
-- **Observability** is structured stderr today (`[mercury] phase=… cost_usd=…` lines);
+- **Observability** is structured stderr today (`[radsvinn] phase=… cost_usd=…` lines);
   `/healthz` is loopback/mesh-only. A metrics/alerting floor is on the roadmap.
 - **Rollback** is redeploy-the-previous-image; the persistent volume carries state across
   deploys.

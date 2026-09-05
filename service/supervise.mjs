@@ -1,6 +1,6 @@
 // supervise.mjs — production supervisor for the two container processes.
 //
-// Railway runs ONE container; Mercury needs the planner service
+// Railway runs ONE container; Radsvinn needs the planner service
 // (service/server.mjs) and the Slack Socket Mode bridge (service/slack.mjs)
 // alive together. This supervisor is the container's long-running process:
 //
@@ -19,7 +19,7 @@
 //   5. SIGTERM/SIGINT → forward SIGTERM to both children, wait up to 10s,
 //      exit 0. Nothing restarts mid-shutdown.
 //
-// Zero dependencies, zero local imports — the supervisor must keep running
+// Zero dependencies; only the shared env resolver is imported. The supervisor must keep running
 // (and keep logging) even when the service code it supervises is broken.
 //
 // Test seams (designed in, not bolted on): the child commands, health URL,
@@ -28,11 +28,12 @@
 // restart/shutdown machinery against tiny fixture scripts — no docker
 // needed.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const MERCURY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const RADSVINN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const BACKOFF_CAP_MS = 30_000;
 const BACKOFF_RESET_UPTIME_MS = 60_000;
@@ -44,28 +45,28 @@ const HEALTH_ATTEMPT_TIMEOUT_MS = 900;
 function log(line) {
   // stderr, like every other operational line this repo emits.
   // eslint-disable-next-line no-console
-  console.error(`[mercury-supervise] ${line}`);
+  console.error(`[radsvinn-supervise] ${line}`);
 }
 
 function envInt(name, fallback) {
-  const n = Number(process.env[name]);
+  const n = Number(readEnv(name));
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 // Whitespace-split command override (the test seam). No shell-quoting
 // support — fixture/production commands are plain `node <script>` shapes.
 function commandFor(name, defaultScript) {
-  const raw = process.env[`MERCURY_SUPERVISE_${name}_CMD`];
+  const raw = readEnv(`RADSVINN_SUPERVISE_${name}_CMD`);
   if (raw && raw.trim().length > 0) return raw.trim().split(/\s+/);
-  return [process.execPath, path.join(MERCURY_ROOT, defaultScript)];
+  return [process.execPath, path.join(RADSVINN_ROOT, defaultScript)];
 }
 
 function createSupervisor() {
-  const backoffBaseMs = envInt('MERCURY_SUPERVISE_BACKOFF_BASE_MS', 1000);
-  const healthUrl = process.env.MERCURY_SUPERVISE_HEALTH_URL
-    || `http://127.0.0.1:${process.env.MERCURY_PORT || 8090}/healthz`;
-  const healthTimeoutMs = envInt('MERCURY_SUPERVISE_HEALTH_TIMEOUT_MS', 60_000);
-  const healthPollMs = envInt('MERCURY_SUPERVISE_HEALTH_POLL_MS', 1000);
+  const backoffBaseMs = envInt('RADSVINN_SUPERVISE_BACKOFF_BASE_MS', 1000);
+  const healthUrl = readEnv('RADSVINN_SUPERVISE_HEALTH_URL')
+    || `http://127.0.0.1:${readEnv('RADSVINN_PORT') || 8090}/healthz`;
+  const healthTimeoutMs = envInt('RADSVINN_SUPERVISE_HEALTH_TIMEOUT_MS', 60_000);
+  const healthPollMs = envInt('RADSVINN_SUPERVISE_HEALTH_POLL_MS', 1000);
 
   let shuttingDown = false;
 
@@ -89,7 +90,7 @@ function createSupervisor() {
   function startChild(child) {
     child.startedAt = Date.now();
     child.proc = spawn(child.cmd[0], child.cmd.slice(1), {
-      cwd: MERCURY_ROOT,
+      cwd: RADSVINN_ROOT,
       stdio: 'inherit', // Railway captures the container streams directly
       env: process.env,
     });

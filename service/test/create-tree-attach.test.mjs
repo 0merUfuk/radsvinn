@@ -34,7 +34,7 @@ const FIXTURE_DIR = path.join(ROOT, 'fixtures', 'e2e-sample');
 // Stages a tmp run dir with fixture COPIES (plan.json's epic.existing_key
 // overridden) and returns the paths the tool + assertions need.
 function stageRun(t, existingKey) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-attach-tool-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-attach-tool-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const plan = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'plan.json'), 'utf8'));
   plan.epic.existing_key = existingKey;
@@ -60,11 +60,11 @@ function runTool(args, { logPath, existingIssues = {} }) {
       // Any real call would 401 anyway, but the stub answers first — the
       // token/cloudId only have to satisfy the tool's presence checks (the
       // stub strips the gateway prefix regardless of the cloudId value).
-      MERCURY_JIRA_TOKEN: 'test-token-never-sent-anywhere',
-      MERCURY_JIRA_CLOUD_ID: 'test-cloud-id',
-      MERCURY_JIRA_PROJECT: 'PROJ',
-      MERCURY_TEST_FETCH_LOG: logPath,
-      MERCURY_TEST_EXISTING_ISSUES: JSON.stringify(existingIssues),
+      RADSVINN_JIRA_TOKEN: 'test-token-never-sent-anywhere',
+      RADSVINN_JIRA_CLOUD_ID: 'test-cloud-id',
+      RADSVINN_JIRA_PROJECT: 'PROJ',
+      RADSVINN_TEST_FETCH_LOG: logPath,
+      RADSVINN_TEST_EXISTING_ISSUES: JSON.stringify(existingIssues),
     },
   });
   assert.equal(res.error, undefined, `spawn failed: ${res.error}`);
@@ -185,7 +185,7 @@ test('cleanup over an attach record (v): transitions ONLY created[] keys — the
   assert.equal(
     swept.log.some((r) => r.url.includes('PROJ-451')),
     false,
-    'NOT ONE request names the attached epic — Mercury did not create it',
+    'NOT ONE request names the attached epic — Radsvinn did not create it',
   );
 });
 

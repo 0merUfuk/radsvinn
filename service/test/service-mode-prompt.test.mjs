@@ -20,9 +20,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { phase1Message, groomMessage } from '../engine.mjs';
+import { RADSVINN_ROOT } from '../state.mjs';
+import { phase1Message, groomMessage, loadPromptBody } from '../engine.mjs';
 
 const BASE = { ask: 'do the thing', requester: 'test-requester', roleLens: 'business', runDir: '/tmp/run-x', outputLanguage: 'en' };
+const DECOMPOSER_PROMPT = path.join(RADSVINN_ROOT, 'prompts', 'decomposer.md');
+const GROOMER_PROMPT = path.join(RADSVINN_ROOT, 'prompts', 'groomer.md');
 
 // Saves + restores one env var around a test (same discipline as the
 // buildClaudeArgs test in grounding-hint.test.mjs).
@@ -35,12 +38,47 @@ function stashEnv(t, key) {
 }
 
 // ---------------------------------------------------------------------------
+// Prompt-body delivery
+// ---------------------------------------------------------------------------
+
+test('prompt bodies lead both composed messages; loader trims, caches, and degrades without throwing', (t) => {
+  const decomposerBody = loadPromptBody(DECOMPOSER_PROMPT);
+  const groomerBody = loadPromptBody(GROOMER_PROMPT);
+  const p1 = phase1Message(BASE);
+  const groom = groomMessage({ edited: false, runDir: BASE.runDir, outputLanguage: 'en' });
+
+  assert.ok(p1.startsWith(`${decomposerBody}\n\n# OUTPUT LANGUAGE\nen\n`),
+    'phase1 starts with the complete decomposer body before its directives');
+  assert.ok(groom.startsWith(`${groomerBody}\n\n# OUTPUT LANGUAGE\nen\n`),
+    'groom starts with the complete groomer body before its directives');
+  assert.match(decomposerBody, /Emit \*\*exactly one JSON object\*\* conforming to `contracts\/skeleton\.schema\.json`/,
+    'the delivered decomposer body carries the schema contract');
+  assert.match(groomerBody, /Emit \*\*exactly one JSON object\*\* conforming to `contracts\/plan\.schema\.json`/,
+    'the delivered groomer body carries the schema contract');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-prompt-cache-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const cachedPath = path.join(dir, 'cached.md');
+  fs.writeFileSync(cachedPath, '  prompt-cache-A  \n');
+  assert.equal(loadPromptBody(cachedPath), 'prompt-cache-A', 'the first read is trimmed');
+  fs.writeFileSync(cachedPath, 'prompt-cache-B');
+  assert.equal(loadPromptBody(cachedPath), 'prompt-cache-A', 'later edits do not bypass the per-path cache');
+
+  const missingPath = path.join(dir, 'missing.md');
+  let fallback;
+  assert.doesNotThrow(() => { fallback = loadPromptBody(missingPath); });
+  assert.equal(fallback, `[prompt body unavailable at ${missingPath} — emit valid JSON per the contract schema]`);
+  fs.writeFileSync(missingPath, 'late prompt body');
+  assert.equal(loadPromptBody(missingPath), fallback, 'the graceful fallback is cached per path too');
+});
+
+// ---------------------------------------------------------------------------
 // The `# TOOLS` directive
 // ---------------------------------------------------------------------------
 
 test('tools directive: BOTH phase1 and groom messages carry it under the safe default posture, and the denied imperatives are gone', (t) => {
-  stashEnv(t, 'MERCURY_AGENT_ALLOWED_TOOLS');
-  delete process.env.MERCURY_AGENT_ALLOWED_TOOLS; // the safe default: Read,Grep,Glob
+  stashEnv(t, 'RADSVINN_AGENT_ALLOWED_TOOLS');
+  delete process.env.RADSVINN_AGENT_ALLOWED_TOOLS; // the safe default: Read,Grep,Glob
 
   const p1 = phase1Message(BASE);
   const groom = groomMessage({ edited: false, runDir: BASE.runDir, outputLanguage: 'en' });
@@ -74,8 +112,8 @@ test('tools directive: BOTH phase1 and groom messages carry it under the safe de
 });
 
 test('tools directive coexists with — and reinforces — the emit-JSON-verbatim contract (both instructions present)', (t) => {
-  stashEnv(t, 'MERCURY_AGENT_ALLOWED_TOOLS');
-  delete process.env.MERCURY_AGENT_ALLOWED_TOOLS;
+  stashEnv(t, 'RADSVINN_AGENT_ALLOWED_TOOLS');
+  delete process.env.RADSVINN_AGENT_ALLOWED_TOOLS;
 
   const p1 = phase1Message(BASE);
   const groom = groomMessage({ edited: false, runDir: BASE.runDir, outputLanguage: 'en' });
@@ -91,8 +129,8 @@ test('tools directive coexists with — and reinforces — the emit-JSON-verbati
 });
 
 test('a deliberately loosened posture (Bash/Write allowed) suppresses the directive and keeps the interactive-style imperatives byte-for-byte', (t) => {
-  stashEnv(t, 'MERCURY_AGENT_ALLOWED_TOOLS');
-  process.env.MERCURY_AGENT_ALLOWED_TOOLS = 'Read,Write,Grep,Glob,Bash';
+  stashEnv(t, 'RADSVINN_AGENT_ALLOWED_TOOLS');
+  process.env.RADSVINN_AGENT_ALLOWED_TOOLS = 'Read,Write,Grep,Glob,Bash';
 
   const p1 = phase1Message(BASE);
   assert.equal(p1.includes('# TOOLS'), false,
@@ -107,7 +145,7 @@ test('a deliberately loosened posture (Bash/Write allowed) suppresses the direct
 
   // An EMPTY allowlist passes no --allowedTools at all (CLI defaults apply)
   // — the directive must not claim "no tools"; inject nothing.
-  process.env.MERCURY_AGENT_ALLOWED_TOOLS = '';
+  process.env.RADSVINN_AGENT_ALLOWED_TOOLS = '';
   assert.equal(phase1Message(BASE).includes('# TOOLS'), false, 'empty allowlist injects no directive');
 });
 
@@ -116,8 +154,8 @@ test('a deliberately loosened posture (Bash/Write allowed) suppresses the direct
 // ---------------------------------------------------------------------------
 
 test('phase1Message: `# COUPLING MAP` carries the REAL map — the no-go-zone money-safety stanza unconditionally present; groom does NOT re-inject', (t) => {
-  stashEnv(t, 'MERCURY_COUPLING_MAP');
-  delete process.env.MERCURY_COUPLING_MAP; // the repo's own coupling-map.yaml
+  stashEnv(t, 'RADSVINN_COUPLING_MAP');
+  delete process.env.RADSVINN_COUPLING_MAP; // the repo's own coupling-map.yaml
 
   const p1 = phase1Message(BASE);
   assert.ok(p1.includes('# COUPLING MAP'), 'the block must be present');
@@ -144,10 +182,10 @@ test('phase1Message: `# COUPLING MAP` carries the REAL map — the no-go-zone mo
 });
 
 test('missing/unreadable coupling map: phase1Message still builds, injects the graceful fallback note, never throws', (t) => {
-  stashEnv(t, 'MERCURY_COUPLING_MAP');
+  stashEnv(t, 'RADSVINN_COUPLING_MAP');
   // A path that provably does not exist — a laptop/test checkout without
   // the file must still plan.
-  process.env.MERCURY_COUPLING_MAP = path.join(os.tmpdir(), `mercury-no-map-${Date.now()}`, 'coupling-map.yaml');
+  process.env.RADSVINN_COUPLING_MAP = path.join(os.tmpdir(), `radsvinn-no-map-${Date.now()}`, 'coupling-map.yaml');
 
   let p1;
   assert.doesNotThrow(() => { p1 = phase1Message(BASE); });
@@ -160,11 +198,11 @@ test('missing/unreadable coupling map: phase1Message still builds, injects the g
 });
 
 test('coupling-map cache: the file is read ONCE per path — later edits do not change the injected content', (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-map-cache-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-map-cache-'));
   const mapPath = path.join(dir, 'coupling-map.yaml');
   fs.writeFileSync(mapPath, 'no_go_zones: [cache-proof-A]\n');
-  stashEnv(t, 'MERCURY_COUPLING_MAP');
-  process.env.MERCURY_COUPLING_MAP = mapPath;
+  stashEnv(t, 'RADSVINN_COUPLING_MAP');
+  process.env.RADSVINN_COUPLING_MAP = mapPath;
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const first = phase1Message(BASE);

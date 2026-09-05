@@ -1,4 +1,4 @@
-# Mercury deterministic-check + verdict thresholds — TUNABLE from calibration, no rebuild needed.
+# Radsvinn deterministic-check + verdict thresholds — TUNABLE from calibration, no rebuild needed.
 # Check LOGIC lives in Go (internal/checks); everything a calibration run might move lives here.
 # Deterministic decomposition and ticket-quality thresholds.
 

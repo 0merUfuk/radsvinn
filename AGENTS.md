@@ -1,16 +1,16 @@
-# Mercury — Agent Constitution (Codex / AGENTS.md format)
+# Radsvinn — Agent Constitution (Codex / AGENTS.md format)
 
 *Version 1.0 · 2026-07-18 · twin to `CLAUDE.md`*
 
-This document is the same operating model as `CLAUDE.md`, written in the language of OpenAI Codex CLI. Use it when working in Mercury with Codex.
+This document is the same operating model as `CLAUDE.md`, written in the language of OpenAI Codex CLI. Use it when working in Radsvinn with Codex.
 
 ---
 
 ## Project identity
 
-Mercury is a coupling-aware AI planner that turns a plain-language ask into a validated ticket tree. The LLM proposes; a deterministic Go gate validates; a human approves twice. The LLM **never writes the tracker**.
+Radsvinn is a coupling-aware AI planner that turns a plain-language ask into a validated ticket tree. The LLM proposes; a deterministic Go gate validates; a human approves twice. The LLM **never writes the tracker**.
 
-This repo is the **org-neutral product seed**: `github.com/0merUfuk/mercury`.
+This repo is the **org-neutral product seed**: `github.com/0merUfuk/radsvinn`.
 
 ---
 

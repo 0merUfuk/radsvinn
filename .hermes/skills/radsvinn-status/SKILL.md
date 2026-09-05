@@ -1,11 +1,11 @@
 ---
-name: mercury-status
-title: Mercury Health Collation
-description: Collation health check across the Mercury repo.
+name: radsvinn-status
+title: Radsvinn Health Collation
+description: Collation health check across the Radsvinn repo.
 version: 1.0
 ---
 
-# Mercury Status
+# Radsvinn Status
 
 Run a quick health collation before starting or after a change.
 
@@ -13,7 +13,7 @@ Run a quick health collation before starting or after a change.
 
 1. **Git state** — `git status --short`, current branch, HEAD SHA.
 2. **Go gate** — `go build ./... && go vet ./... && go test -count=1 ./...`
-3. **Service tests** — `MERCURY_ENGINE=fake MERCURY_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs`
+3. **Service tests** — `RADSVINN_ENGINE=fake RADSVINN_SKIP_PLAN_ANCHORS=1 node --test service/test/*.test.mjs`
 4. **Dashboard tests** — `cd dashboard && node --test test/*.test.mjs`
 5. **Forbidden-term scan** — grep for source-org references (none expected).
 6. **Open worktrees / dirty state** — warn if found.

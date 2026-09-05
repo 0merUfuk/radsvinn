@@ -8,17 +8,17 @@ import { createServer } from '../server.mjs';
 import { getJson } from './helpers.mjs';
 
 test('crash-resume: a plan stuck in a transient status reloads as failed / interrupted by restart', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-service-persist-'));
-  const prevResultsDir = process.env.MERCURY_RESULTS_DIR;
-  const prevEngine = process.env.MERCURY_ENGINE;
-  process.env.MERCURY_RESULTS_DIR = resultsDir;
-  process.env.MERCURY_ENGINE = 'fake';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-service-persist-'));
+  const prevResultsDir = process.env.RADSVINN_RESULTS_DIR;
+  const prevEngine = process.env.RADSVINN_ENGINE;
+  process.env.RADSVINN_RESULTS_DIR = resultsDir;
+  process.env.RADSVINN_ENGINE = 'fake';
 
   t.after(() => {
-    if (prevResultsDir === undefined) delete process.env.MERCURY_RESULTS_DIR;
-    else process.env.MERCURY_RESULTS_DIR = prevResultsDir;
-    if (prevEngine === undefined) delete process.env.MERCURY_ENGINE;
-    else process.env.MERCURY_ENGINE = prevEngine;
+    if (prevResultsDir === undefined) delete process.env.RADSVINN_RESULTS_DIR;
+    else process.env.RADSVINN_RESULTS_DIR = prevResultsDir;
+    if (prevEngine === undefined) delete process.env.RADSVINN_ENGINE;
+    else process.env.RADSVINN_ENGINE = prevEngine;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
 
@@ -67,12 +67,12 @@ test('crash-resume: a plan stuck in a transient status reloads as failed / inter
 });
 
 test('crash-resume: a healthy terminal-status plan reloads unchanged', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-service-persist-'));
-  const prevResultsDir = process.env.MERCURY_RESULTS_DIR;
-  process.env.MERCURY_RESULTS_DIR = resultsDir;
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-service-persist-'));
+  const prevResultsDir = process.env.RADSVINN_RESULTS_DIR;
+  process.env.RADSVINN_RESULTS_DIR = resultsDir;
   t.after(() => {
-    if (prevResultsDir === undefined) delete process.env.MERCURY_RESULTS_DIR;
-    else process.env.MERCURY_RESULTS_DIR = prevResultsDir;
+    if (prevResultsDir === undefined) delete process.env.RADSVINN_RESULTS_DIR;
+    else process.env.RADSVINN_RESULTS_DIR = prevResultsDir;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
 

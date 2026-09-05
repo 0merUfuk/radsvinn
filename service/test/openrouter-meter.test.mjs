@@ -61,14 +61,14 @@ function receipt(id, totalCost = 0.000000001) {
 test('OpenRouter child environment contains only loopback capability and pins every model alias', () => {
   const sourceKey = 'or-source-never-child-visible';
   const env = openRouterChildEnv({
-    MERCURY_OPENROUTER_API_KEY: sourceKey,
+    RADSVINN_OPENROUTER_API_KEY: sourceKey,
     OPENROUTER_API_KEY: sourceKey,
     ANTHROPIC_API_KEY: 'anthropic-source-never-child-visible',
     ANTHROPIC_AUTH_TOKEN: 'anthropic-auth-never-child-visible',
     PATH: '/usr/bin',
   }, { baseUrl: 'http://127.0.0.1:12345', capability: 'phase-only-capability' });
 
-  assert.equal(env.MERCURY_OPENROUTER_API_KEY, undefined);
+  assert.equal(env.RADSVINN_OPENROUTER_API_KEY, undefined);
   assert.equal(env.OPENROUTER_API_KEY, undefined);
   assert.equal(env.ANTHROPIC_API_KEY, '');
   assert.equal(env.ANTHROPIC_AUTH_TOKEN, 'phase-only-capability');
@@ -261,7 +261,7 @@ test('a capability from a finalized proxy cannot authorize a fresh proxy', async
 });
 
 test('server records known failed-phase spend but only unknown telemetry locks later LLM work', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-meter-server-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-meter-server-'));
   let calls = 0;
   const knownEngine = {
     async phase1() {
@@ -285,9 +285,9 @@ test('server records known failed-phase spend but only unknown telemetry locks l
 });
 
 test('server persists charge before a gate exception, and retry sees the fixed-point plan cap', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-meter-gate-'));
-  const previous = process.env.MERCURY_PLAN_BUDGET_USD;
-  process.env.MERCURY_PLAN_BUDGET_USD = '0.000000001';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-meter-gate-'));
+  const previous = process.env.RADSVINN_PLAN_BUDGET_USD;
+  process.env.RADSVINN_PLAN_BUDGET_USD = '0.000000001';
   let calls = 0;
   const engine = {
     async phase1() { calls += 1; return { sessionId: 's', costUsd: 0.000000001, resultText: 'x', model: 'fake' }; },
@@ -297,8 +297,8 @@ test('server persists charge before a gate exception, and retry sees the fixed-p
   const baseUrl = `http://127.0.0.1:${address.port}`;
   t.after(async () => {
     await app.close(); fs.rmSync(resultsDir, { recursive: true, force: true });
-    if (previous === undefined) delete process.env.MERCURY_PLAN_BUDGET_USD;
-    else process.env.MERCURY_PLAN_BUDGET_USD = previous;
+    if (previous === undefined) delete process.env.RADSVINN_PLAN_BUDGET_USD;
+    else process.env.RADSVINN_PLAN_BUDGET_USD = previous;
   });
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const failed = await pollUntil(() => getJson(baseUrl, `/plan/${created.body.plan_id}`), (r) => r.body.status === 'failed');
@@ -313,7 +313,7 @@ test('server persists charge before a gate exception, and retry sees the fixed-p
 });
 
 test('unknown receipt locks the root after preserving known spend; corrupted daily ledger is visibly locked', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-meter-lock-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-meter-lock-'));
   const app = createServer({
     resultsDir,
     engine: { async phase1() { throw new CostTelemetryError('internal only', { costNanos: 2 }); } },
@@ -329,7 +329,7 @@ test('unknown receipt locks the root after preserving known spend; corrupted dai
   assert.equal(health.body.cost_telemetry_locked, true);
   assert.equal(health.body.daily_spend_usd, null);
 
-  const corruptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-meter-corrupt-'));
+  const corruptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-meter-corrupt-'));
   t.after(() => fs.rmSync(corruptDir, { recursive: true, force: true }));
   fs.mkdirSync(path.join(corruptDir, 'service'), { recursive: true });
   fs.writeFileSync(path.join(corruptDir, 'service', `daily-spend-${new Date().toISOString().slice(0, 10)}.json`), '{broken');

@@ -1,4 +1,4 @@
-# Mercury Handoff
+# Radsvinn Handoff
 
 Package the current session for the next agent or session.
 

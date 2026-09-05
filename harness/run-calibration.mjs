@@ -1,4 +1,4 @@
-// run-calibration.mjs — drive Mercury's planner pipeline over fixture asks and
+// run-calibration.mjs — drive Radsvinn's planner pipeline over fixture asks and
 // record everything a human calibration needs.
 //
 //   node run-calibration.mjs [--asks fixtures/asks] [--out results/<ts>] [--dry-run]
@@ -36,7 +36,7 @@ import {
   loadConfig, loadYaml, loadJson, readText, parseAsk, computeSlice, invokeClaude,
   buildTreecheck, runTreecheck, weightedScore, verdictFor, applyVerdictFloors,
   flattenScores, compareStructure, gitShaSafe, gitFetchSafe, writeJson, writeText, ensureDir,
-  sha256File, uuid, parseArgs, timestamp, safeKey, HARNESS_DIR, MERCURY_ROOT,
+  sha256File, uuid, parseArgs, timestamp, safeKey, HARNESS_DIR, RADSVINN_ROOT,
 } from './lib.mjs';
 
 const GEN_TOOLS = ['Read', 'Grep', 'Glob'];
@@ -817,7 +817,7 @@ async function main() {
   // Judge/generator separation: an ACCIDENTALLY collapsed pairing defeats the
   // judge pass. A deliberate same-model pairing is legal when context isolation
   // holds (fresh sessions, no --resume, rubric-only judge prompt) — acknowledge
-  // it explicitly via config `models.same_model_ok: true` (Mercury model policy,
+  // it explicitly via config `models.same_model_ok: true` (Radsvinn model policy,
   // 2026-07-03) or the --allow-same-model flag.
   if (
     cfg.models.judge === cfg.models.generator &&
@@ -830,13 +830,13 @@ async function main() {
 
   const couplingMap = loadYaml(cfg.absPaths.coupling_map);
 
-  // --rejudge <runDir>: resolve the source run (cwd, harness dir, mercury root).
+  // --rejudge <runDir>: resolve the source run (cwd, harness dir, radsvinn root).
   let rejudgeSrc = null;
   if (args.rejudge) {
     const cands = [
       path.isAbsolute(args.rejudge) ? args.rejudge : path.resolve(process.cwd(), args.rejudge),
       path.resolve(HARNESS_DIR, args.rejudge),
-      path.resolve(MERCURY_ROOT, args.rejudge),
+      path.resolve(RADSVINN_ROOT, args.rejudge),
     ];
     rejudgeSrc = cands.find((c) => fs.existsSync(c) && fs.statSync(c).isDirectory()) ?? null;
     if (!rejudgeSrc) {
@@ -853,9 +853,9 @@ async function main() {
     ? (path.isAbsolute(args.out) ? args.out : path.resolve(HARNESS_DIR, args.out))
     : path.join(HARNESS_DIR, 'results', runId);
   const asksDir = args.asks
-    ? (path.isAbsolute(args.asks) ? args.asks : path.resolve(MERCURY_ROOT, args.asks))
-    : path.resolve(MERCURY_ROOT, 'fixtures/asks');
-  const dryRunDir = path.resolve(MERCURY_ROOT, 'fixtures/dryrun');
+    ? (path.isAbsolute(args.asks) ? args.asks : path.resolve(RADSVINN_ROOT, args.asks))
+    : path.resolve(RADSVINN_ROOT, 'fixtures/asks');
+  const dryRunDir = path.resolve(RADSVINN_ROOT, 'fixtures/dryrun');
   const workspaceRoot = cfg.absPaths.repos_root; // generators ground Read/Grep here
   const concurrency = Math.max(1, parseInt(args.concurrency, 10) || 3);
   const timeoutMs = Math.max(1, Number(cfg.limits.call_timeout_minutes ?? 20)) * 60_000;
@@ -941,7 +941,7 @@ async function main() {
     units = remaining;
   }
 
-  console.log(`Mercury calibration run ${runId} — ${dryRun ? 'DRY-RUN' : 'LIVE'}${rejudgeSrc ? ' — REJUDGE of ' + rejudgeSrc : ''} — ${units.length} ask(s)${skipped.length ? ` (+${skipped.length} resumed/skipped: ${skipped.join(', ')})` : ''}`);
+  console.log(`Radsvinn calibration run ${runId} — ${dryRun ? 'DRY-RUN' : 'LIVE'}${rejudgeSrc ? ' — REJUDGE of ' + rejudgeSrc : ''} — ${units.length} ask(s)${skipped.length ? ` (+${skipped.length} resumed/skipped: ${skipped.join(', ')})` : ''}`);
   console.log(`  out:       ${outDir}`);
   console.log(`  generator: ${cfg.models.generator} (${cfg.models.generator_effort})`);
   console.log(`  judge:     ${cfg.models.judge} (${cfg.models.judge_effort})`);

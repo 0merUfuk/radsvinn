@@ -15,7 +15,7 @@ import { startTestServer, postJson, getJson, pollUntil } from './helpers.mjs';
 import { createServer } from '../server.mjs';
 
 test('read-model: full description (>80 chars), requester, role_lens are surfaced by GET /plan; reject pair is absent pre-reject', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const longDescription = `${'x'.repeat(120)} — the full text must round-trip untruncated`;
@@ -39,7 +39,7 @@ test('read-model: full description (>80 chars), requester, role_lens are surface
 });
 
 test('read-model: reject_reason/reject_stage are surfaced verbatim after a reject, including the default stage', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -56,7 +56,7 @@ test('read-model: reject_reason/reject_stage are surfaced verbatim after a rejec
 });
 
 test('read-model: an explicit stage on reject is preserved verbatim', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -70,16 +70,16 @@ test('read-model: an explicit stage on reject is preserved verbatim', async (t) 
 });
 
 test('read-model: a legacy on-disk plan file (predates description/requester/role_lens/reject_* on disk) loads and renders without those fields, never crashing GET /plan', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-service-read-model-'));
-  const prevResultsDir = process.env.MERCURY_RESULTS_DIR;
-  const prevEngine = process.env.MERCURY_ENGINE;
-  process.env.MERCURY_RESULTS_DIR = resultsDir;
-  process.env.MERCURY_ENGINE = 'fake';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-service-read-model-'));
+  const prevResultsDir = process.env.RADSVINN_RESULTS_DIR;
+  const prevEngine = process.env.RADSVINN_ENGINE;
+  process.env.RADSVINN_RESULTS_DIR = resultsDir;
+  process.env.RADSVINN_ENGINE = 'fake';
   t.after(() => {
-    if (prevResultsDir === undefined) delete process.env.MERCURY_RESULTS_DIR;
-    else process.env.MERCURY_RESULTS_DIR = prevResultsDir;
-    if (prevEngine === undefined) delete process.env.MERCURY_ENGINE;
-    else process.env.MERCURY_ENGINE = prevEngine;
+    if (prevResultsDir === undefined) delete process.env.RADSVINN_RESULTS_DIR;
+    else process.env.RADSVINN_RESULTS_DIR = prevResultsDir;
+    if (prevEngine === undefined) delete process.env.RADSVINN_ENGINE;
+    else process.env.RADSVINN_ENGINE = prevEngine;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
 

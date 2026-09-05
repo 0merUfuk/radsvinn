@@ -192,7 +192,7 @@ test('view_submission: grounding block MISSING from state.values -> full fallbac
 // ---------------------------------------------------------------------------
 
 test('grounding_hint: validated on POST /plan (400 on junk/non-string), defaulted to full, persisted and echoed in the view', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const junk = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', grounding_hint: 'medium' });
@@ -226,7 +226,7 @@ test('grounding wire: the service passes groundingHint (alongside scopeHint) int
   // createServer(options.engine) is the documented test seam — wrap the
   // fake engine and record phase1's args, exactly as the real engine would
   // receive them (same contract scope_hint rides on).
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-grounding-wire-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-grounding-wire-'));
   const fake = createEngine('fake');
   const phase1Args = [];
   const engine = {
@@ -273,16 +273,22 @@ test('phase1Message: `light` injects the `# GROUNDING` block after `# SCOPE`; fu
   assert.match(light, /do NOT exhaustively grep or crawl the repos/);
   assert.match(light, /acceptable for this plan to\ncarry fewer code_anchors/);
   assert.match(light, /OVERRIDES your default grounding thoroughness/, 'the directive states it is the user decision, not a suggestion');
-  // Placement: directives precede the ask so they govern the decomposition
-  // instead of reading as request text; language still leads.
+  // Placement: the role body leads, then directives precede the ask so they
+  // govern the decomposition instead of reading as request text.
   assert.ok(light.indexOf('# GROUNDING') < light.indexOf('do the thing'), 'the GROUNDING block precedes the ask');
-  assert.ok(light.startsWith('# OUTPUT LANGUAGE'), 'the language directive still leads');
+  assert.ok(light.startsWith('# Radsvinn Decomposer — Phase 1 (Break-Down)'),
+    'the decomposer prompt body now leads the composed message');
+  const outputLanguageIndex = light.lastIndexOf('\n\n# OUTPUT LANGUAGE\n') + 2;
+  assert.ok(outputLanguageIndex >= 2, 'the composed directive tail has an output-language anchor');
+  assert.ok(outputLanguageIndex < light.indexOf('# GROUNDING'),
+    'the language directive still leads the service-specific directives');
 
   // Both directives present: SCOPE (what to produce) before GROUNDING (how
   // to verify it) — the deliberate order documented in engine.mjs.
   const both = phase1Message({ ...base, scopeHint: 'single', groundingHint: 'light' });
-  assert.ok(both.indexOf('# SCOPE') < both.indexOf('# GROUNDING'), 'SCOPE precedes GROUNDING');
-  assert.ok(both.indexOf('# GROUNDING') < both.indexOf('do the thing'), 'both precede the ask');
+  const bothTail = both.slice(both.lastIndexOf('\n\n# OUTPUT LANGUAGE\n') + 2);
+  assert.ok(bothTail.indexOf('# SCOPE') < bothTail.indexOf('# GROUNDING'), 'SCOPE precedes GROUNDING');
+  assert.ok(bothTail.indexOf('# GROUNDING') < bothTail.indexOf('do the thing'), 'both precede the ask');
 
   // The asymmetric default, proven byte-for-byte: full/absent/unknown all
   // produce EXACTLY the pre-change message — today's behavior untouched.
@@ -303,29 +309,29 @@ function argValue(args, flag) {
 }
 
 test('buildClaudeArgs: light adds --max-turns to DECOMPOSE (flat) and GROOM (plan-size-scaled); env-overridable; full/absent argv stays byte-identical', (t) => {
-  const prev = process.env.MERCURY_LIGHT_MAX_TURNS;
+  const prev = process.env.RADSVINN_LIGHT_MAX_TURNS;
   t.after(() => {
-    if (prev === undefined) delete process.env.MERCURY_LIGHT_MAX_TURNS;
-    else process.env.MERCURY_LIGHT_MAX_TURNS = prev;
+    if (prev === undefined) delete process.env.RADSVINN_LIGHT_MAX_TURNS;
+    else process.env.RADSVINN_LIGHT_MAX_TURNS = prev;
   });
-  delete process.env.MERCURY_LIGHT_MAX_TURNS;
+  delete process.env.RADSVINN_LIGHT_MAX_TURNS;
 
   // light + phase1 → the cap, with the default bound.
   const lightP1 = buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: false, kind: 'phase1', groundingHint: 'light' });
   assert.equal(argValue(lightP1, '--max-turns'), '12', 'light decompose carries --max-turns with the default 12');
 
   // env override respected.
-  process.env.MERCURY_LIGHT_MAX_TURNS = '5';
+  process.env.RADSVINN_LIGHT_MAX_TURNS = '5';
   const overridden = buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: false, kind: 'phase1', groundingHint: 'light' });
-  assert.equal(argValue(overridden, '--max-turns'), '5', 'MERCURY_LIGHT_MAX_TURNS override respected');
+  assert.equal(argValue(overridden, '--max-turns'), '5', 'RADSVINN_LIGHT_MAX_TURNS override respected');
 
   // garbage overrides fall back to the default — never pass junk to the CLI.
   for (const junk of ['abc', '0', '-3', '2.5', '']) {
-    process.env.MERCURY_LIGHT_MAX_TURNS = junk;
+    process.env.RADSVINN_LIGHT_MAX_TURNS = junk;
     const args = buildClaudeArgs({ userMessage: 'm', sessionId: 's-1', resume: false, kind: 'phase1', groundingHint: 'light' });
     assert.equal(argValue(args, '--max-turns'), '12', `junk override "${junk}" falls back to 12`);
   }
-  delete process.env.MERCURY_LIGHT_MAX_TURNS;
+  delete process.env.RADSVINN_LIGHT_MAX_TURNS;
 
   // Groom is turn-capped for light grounding:
   // light groom is NOW capped too. The decompose-only cap left groom
@@ -388,7 +394,7 @@ test('skeletonMessage: `grounding: light` is visible at the shape gate ONLY when
 test('phase timing: the engine result carries {durationMs, numTurns, model}; the server emits the structured phase log for decompose AND groom', async (t) => {
   // (a) the engine-return seam — the fake reports plausible DETERMINISTIC
   // stubs so this stays byte-reproducible (never a real clock read).
-  const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-timing-'));
+  const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-timing-'));
   t.after(() => fs.rmSync(runDir, { recursive: true, force: true }));
   const fake = createEngine('fake');
   const p1 = await fake.phase1({ runDir });
@@ -403,7 +409,7 @@ test('phase timing: the engine result carries {durationMs, numTurns, model}; the
   // (b) the server-side structured stderr line, captured by patching
   // console.error for the duration of the run (node:test runs the tests in
   // this file sequentially, so the global patch cannot race a sibling).
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
   const logged = [];
   const originalError = console.error;
@@ -421,7 +427,7 @@ test('phase timing: the engine result carries {durationMs, numTurns, model}; the
 
   await pollUntil(() => getJson(ctx.baseUrl, `/plan/${planId}`), (r) => r.body.status === 'shape_ready', { timeoutMs: 30000 });
   assert.ok(
-    logged.includes(`[mercury] phase=decompose plan=${id8} model=fake grounding=light turns=1 duration_ms=0 cost_usd=0.8`),
+    logged.includes(`[radsvinn] phase=decompose plan=${id8} model=fake grounding=light turns=1 duration_ms=0 cost_usd=0.8`),
     `the decompose phase log must carry the exact structured fields — got: ${JSON.stringify(logged)}`,
   );
 
@@ -429,7 +435,7 @@ test('phase timing: the engine result carries {durationMs, numTurns, model}; the
   assert.equal(approve.status, 202);
   await pollUntil(() => getJson(ctx.baseUrl, `/plan/${planId}`), (r) => r.body.status === 'plan_ready', { timeoutMs: 30000 });
   assert.ok(
-    logged.includes(`[mercury] phase=groom plan=${id8} model=fake grounding=light turns=1 duration_ms=0 cost_usd=0.9`),
+    logged.includes(`[radsvinn] phase=groom plan=${id8} model=fake grounding=light turns=1 duration_ms=0 cost_usd=0.9`),
     `the groom phase log must carry the exact structured fields — got: ${JSON.stringify(logged)}`,
   );
 });
@@ -443,7 +449,7 @@ test('grounding e2e (fake engine): a light plan flows to shape_ready — the det
   // deliberately: grounding is a prompt-level (+ argv) constraint on the
   // agent's exploration, never a new machine gate; the human at the shape
   // gate (who now SEES `grounding: light`) owns the depth trade-off.
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const res = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester', grounding_hint: 'light' });

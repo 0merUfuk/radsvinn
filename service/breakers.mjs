@@ -1,7 +1,7 @@
 // breakers.mjs — per-plan cost cap + daily circuit breaker.
 //
 // Per-plan: before groom AND phase1 bounded-regen calls (B2), if the
-// plan's accumulated cost_usd already meets/exceeds MERCURY_PLAN_BUDGET_USD
+// plan's accumulated cost_usd already meets/exceeds RADSVINN_PLAN_BUDGET_USD
 // (default $10), the plan is refused (caller sets status to budget_blocked).
 // A fresh plan's FIRST phase1 call is exempt (cost_usd 0); the cap bites only
 // once real spend has accumulated, so it also bounds the regen loop's spend.
@@ -11,6 +11,7 @@
 // engine call (phase1 included). >= hard (default $100) refuses; >= soft
 // (default $50) logs one warning per process boot and continues.
 
+import { readEnv } from '../dashboard/lib/env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { nanodollarsToUsd, usdToNanodollars } from './openrouter-meter.mjs';
@@ -26,7 +27,7 @@ let warnedSoftThisBoot = false;
 const telemetryLocks = new Map();
 
 function envFloat(env, name, fallback) {
-  const raw = env[name];
+  const raw = readEnv(name, env);
   if (raw === undefined || raw === '') return fallback;
   const n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
@@ -141,8 +142,8 @@ export function checkDaily(resultsDirPath, env = process.env) {
     const reason = lockCostTelemetry(resultsDirPath, 'daily spend ledger is corrupt');
     return { blocked: true, reason, telemetryLocked: true };
   }
-  const hard = envFloat(env, 'MERCURY_DAILY_HARD_USD', DEFAULT_DAILY_HARD_USD);
-  const soft = envFloat(env, 'MERCURY_DAILY_SOFT_USD', DEFAULT_DAILY_SOFT_USD);
+  const hard = envFloat(env, 'RADSVINN_DAILY_HARD_USD', DEFAULT_DAILY_HARD_USD);
+  const soft = envFloat(env, 'RADSVINN_DAILY_SOFT_USD', DEFAULT_DAILY_SOFT_USD);
   const totalNanos = dailyData.total_nanos;
   const hardNanos = usdToNanodollars(hard);
   const softNanos = usdToNanodollars(soft);
@@ -161,7 +162,7 @@ export function checkDaily(resultsDirPath, env = process.env) {
     warnedSoftThisBoot = true;
     // eslint-disable-next-line no-console
     console.error(
-      `[mercury] WARNING: daily spend $${total.toFixed(2)} has crossed the soft cap $${soft.toFixed(2)} (hard cap $${hard.toFixed(2)})`,
+      `[radsvinn] WARNING: daily spend $${total.toFixed(2)} has crossed the soft cap $${soft.toFixed(2)} (hard cap $${hard.toFixed(2)})`,
     );
   }
   return { blocked: false, total, totalNanos, hard, hardNanos, soft, softNanos };
@@ -169,7 +170,7 @@ export function checkDaily(resultsDirPath, env = process.env) {
 
 /** Call before groom and phase1 bounded-regen calls (B2, cost>0-gated). */
 export function checkPlanBudget(plan, env = process.env) {
-  const cap = envFloat(env, 'MERCURY_PLAN_BUDGET_USD', DEFAULT_PLAN_BUDGET_USD);
+  const cap = envFloat(env, 'RADSVINN_PLAN_BUDGET_USD', DEFAULT_PLAN_BUDGET_USD);
   const capNanos = usdToNanodollars(cap);
   let costNanos;
   try {

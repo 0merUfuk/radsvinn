@@ -6,7 +6,7 @@
 // drifting apart as two inline copies.
 
 // The deployed planner's four required physical grounding checkouts. An
-// operator may extend this set through MERCURY_GROUNDING_REPOS, but may never
+// operator may extend this set through RADSVINN_GROUNDING_REPOS, but may never
 // subtract it: a known repo disappearing from a legacy explicit env list would
 // otherwise make plans look healthy while its read-only checkout is absent.
 //
@@ -27,7 +27,7 @@ const PLAN_ONLY_ROUTING_MARKER = 'cross-repo-lockstep';
 // This deliberately contains neither the invalid value nor any other process
 // environment. The entrypoint logs it directly, so config errors are visible
 // at boot without turning a malformed variable into an accidental log sink.
-export const INVALID_GROUNDING_REPOS_MESSAGE = 'invalid MERCURY_GROUNDING_REPOS configuration; expected comma-separated GitHub repository slugs';
+export const INVALID_GROUNDING_REPOS_MESSAGE = 'invalid RADSVINN_GROUNDING_REPOS configuration; expected comma-separated GitHub repository slugs';
 
 // groundingRepos parses additive physical deployment extensions without
 // leaving the entrypoint with a second required list. Defaults always come

@@ -1,13 +1,13 @@
-# Mercury coupling map — EXAMPLE (replace every entry with your platform's real edges)
+# Radsvinn coupling map — EXAMPLE (replace every entry with your platform's real edges)
 # ===========================================================================
-# This file is the coupling ground truth Mercury reads while it decomposes and
+# This file is the coupling ground truth Radsvinn reads while it decomposes and
 # grooms tickets: which data is written by more than one service, which
 # cross-service calls are lockstep, and which paths are "no-go zones" that a
 # human must own instead of an agent splitting them across repos.
 #
 # The contents below are a NEUTRAL, illustrative example built on the example
 # repo set (web-app, api-service, worker-service, shared-lib). They exist to
-# show the SCHEMA — delete them and describe your own coupling. Mercury only
+# show the SCHEMA — delete them and describe your own coupling. Radsvinn only
 # trusts what is written here; an empty or wrong map means missed hazards.
 #
 # Anchor identity = file + symbol_or_pattern (grep-able). `line_as_of` is a
@@ -77,7 +77,7 @@ tables:
       PascalCase write are the same column; a missed writer is a production risk.
 
 # ── services ────────────────────────────────────────────────────────────────
-# Cross-service edges Mercury uses to order tickets (producer before consumer)
+# Cross-service edges Radsvinn uses to order tickets (producer before consumer)
 # and to flag lockstep changes.
 #   sync_out    a synchronous call whose response shape couples caller to callee.
 #   events_pub  a message this service publishes.
@@ -115,7 +115,7 @@ services:
 # ── no_go_zones ──────────────────────────────────────────────────────────────
 # The one block the deterministic checker parses. Enumerate every member path
 # EXPLICITLY (a file or a directory prefix) — no brace globs, no prose summaries.
-# A member left out is a writer Mercury cannot see.
+# A member left out is a writer Radsvinn cannot see.
 no_go_zones:
   - id: shared-write # must be a legal non-none coupling_zones value.
     kind: shared-write # a table written by multiple services with no single owner.

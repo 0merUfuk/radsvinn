@@ -1,13 +1,13 @@
 ---
-name: mercury-continue
-title: Mercury Session Continuation
-description: Resume a Mercury session from the state quartet with drift verification.
+name: radsvinn-continue
+title: Radsvinn Session Continuation
+description: Resume a Radsvinn session from the state quartet with drift verification.
 version: 1.0
 ---
 
-# Mercury Continue
+# Radsvinn Continue
 
-Resume a Mercury initiative without context loss. Use when a previous session ended or compaction occurred.
+Resume a Radsvinn initiative without context loss. Use when a previous session ended or compaction occurred.
 
 ## Procedure
 

@@ -13,8 +13,8 @@ import { createServer } from '../server.mjs';
  * down, restores any env vars this touched, and removes the tmp directory.
  */
 export async function startTestServer(envOverrides = {}) {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-service-test-'));
-  const envToSet = { MERCURY_RESULTS_DIR: resultsDir, MERCURY_ENGINE: 'fake', ...envOverrides };
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-service-test-'));
+  const envToSet = { RADSVINN_RESULTS_DIR: resultsDir, RADSVINN_ENGINE: 'fake', ...envOverrides };
   const prevEnv = {};
   for (const [k, v] of Object.entries(envToSet)) {
     prevEnv[k] = process.env[k];

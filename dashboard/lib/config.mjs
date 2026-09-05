@@ -1,3 +1,4 @@
+import { readEnv } from './env.mjs';
 // lib/config.mjs — env parsing + boot validation for the dashboard BFF.
 //
 // House pattern (mirrors service/server.mjs's fail-closed boot gate): all env
@@ -43,8 +44,8 @@ export function loadConfig(env = process.env) {
     port: Number(env.PORT) || 8080,
     version: trimmed(env.npm_package_version) || '0.1.0',
 
-    plannerUrl: trimmed(env.MERCURY_PLANNER_URL),
-    plannerToken: trimmed(env.MERCURY_SERVICE_TOKEN_DASHBOARD),
+    plannerUrl: trimmed(readEnv('RADSVINN_PLANNER_URL', env)),
+    plannerToken: trimmed(readEnv('RADSVINN_SERVICE_TOKEN_DASHBOARD', env)),
 
     githubClientId: trimmed(env.DASH_GITHUB_CLIENT_ID),
     githubClientSecret: trimmed(env.DASH_GITHUB_CLIENT_SECRET),
@@ -82,8 +83,8 @@ export function loadConfig(env = process.env) {
 // calls this and exits on a non-empty result.
 export function validateConfig(cfg) {
   const problems = [];
-  if (!cfg.plannerUrl) problems.push('MERCURY_PLANNER_URL is required');
-  if (!cfg.plannerToken) problems.push('MERCURY_SERVICE_TOKEN_DASHBOARD is required (blank/missing cannot authenticate to the planner)');
+  if (!cfg.plannerUrl) problems.push('RADSVINN_PLANNER_URL is required');
+  if (!cfg.plannerToken) problems.push('RADSVINN_SERVICE_TOKEN_DASHBOARD is required (blank/missing cannot authenticate to the planner)');
   if (!cfg.githubClientId) problems.push('DASH_GITHUB_CLIENT_ID is required');
   if (!cfg.githubClientSecret) problems.push('DASH_GITHUB_CLIENT_SECRET is required');
   if (!cfg.sessionSecret || cfg.sessionSecret.length < 32) {

@@ -1,14 +1,14 @@
-# Mercury — Hermes Project Constitution
+# Radsvinn — Hermes Project Constitution
 
 *Version 1.0 · 2026-07-18*
 
-Mercury is a coupling-aware AI planner: it turns a plain-language ask into a validated ticket tree through two LLM planning phases on a first-pass success (bounded gate-driven regeneration may add calls), two human approve-gates, a deterministic Go gate, a no-LLM tracker writer, and bounded spend breakers. This workspace is the **generalized, org-neutral product seed** (`github.com/0merUfuk/mercury`).
+Radsvinn is a coupling-aware AI planner: it turns a plain-language ask into a validated ticket tree through two LLM planning phases on a first-pass success (bounded gate-driven regeneration may add calls), two human approve-gates, a deterministic Go gate, a no-LLM tracker writer, and bounded spend breakers. This workspace is the **generalized, org-neutral product seed** (`github.com/0merUfuk/radsvinn`).
 
 > **Standing order:** every session begins by reading this file, then `docs/ARCHITECTURE.md`, then `docs/ROADMAP.md` if the task spans more than one session.
 
 ---
 
-## 1. What Mercury is building
+## 1. What Radsvinn is building
 
 A planning engine that can be trusted with real work because every place trust matters is **code and a human**, not a model's promise.
 
@@ -64,7 +64,7 @@ The reviewer is read-only-by-configuration. A false "all clear" is worse than a 
 Three layers, explicit spend policy:
 
 1. **Always-on rules** — tiny, path-scoped invariants. Loaded every session; must be <500 lines total.
-2. **On-demand knowledge** — deep Mercury-specific docs. Loaded only when the work shape demands it.
+2. **On-demand knowledge** — deep Radsvinn-specific docs. Loaded only when the work shape demands it.
 3. **Per-initiative state** — `tasks/{slug}/` quartet (CONTEXT, PLAN, PROGRESS, HANDOFF) for work spanning sessions.
 
 **Context Window Protection:** never keep more than 3 source files in the main context; delegate exploration to subagents.
@@ -73,16 +73,16 @@ Three layers, explicit spend policy:
 
 ## 6. Core skills
 
-Hermes skills live in `~/.hermes/skills/` and are invoked by name. Mercury uses:
+Hermes skills live in `~/.hermes/skills/` and are invoked by name. Radsvinn uses:
 
 | Skill | Purpose |
 |---|---|
-| `mercury-task-prompt` | Generate a scoped, gated briefing with acknowledgment sentinel |
-| `mercury-continue` | Resume a session from the 4-file state quartet |
-| `mercury-handoff` | Package a session for the next session or subagent |
-| `mercury-doublecheck` | Run 4 adversarial passes before a gate |
-| `mercury-status` | Collation health check across the repo |
-| `mercury-commit` | Conventional commit slicing, no AI attribution tags |
+| `radsvinn-task-prompt` | Generate a scoped, gated briefing with acknowledgment sentinel |
+| `radsvinn-continue` | Resume a session from the 4-file state quartet |
+| `radsvinn-handoff` | Package a session for the next session or subagent |
+| `radsvinn-doublecheck` | Run 4 adversarial passes before a gate |
+| `radsvinn-status` | Collation health check across the repo |
+| `radsvinn-commit` | Conventional commit slicing, no AI attribution tags |
 
 ---
 
@@ -124,5 +124,5 @@ Hermes skills live in `~/.hermes/skills/` and are invoked by name. Mercury uses:
 1. Read this file.
 2. Read `docs/ARCHITECTURE.md`.
 3. Read `docs/ROADMAP.md`.
-4. Run `mercury-status` skill.
+4. Run `radsvinn-status` skill.
 5. If still lost, write a handoff file and stop.

@@ -1,4 +1,4 @@
-module github.com/0merUfuk/mercury
+module github.com/0merUfuk/radsvinn
 
 go 1.25
 

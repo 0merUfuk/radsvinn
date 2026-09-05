@@ -8,7 +8,7 @@
 // the exact wire — which session a regen resumes, which complaint it carries,
 // how many calls happen — is assertable without ever spawning `claude`.
 //
-// The suite command starts a fake engine with MERCURY_SKIP_PLAN_ANCHORS=1.
+// The suite command starts a fake engine with RADSVINN_SKIP_PLAN_ANCHORS=1.
 // createServer translates that legacy knob into a whole-PLAN-gate skip (the
 // skeleton gate always runs), so phase1 tests are unaffected and the
 // groom-mirror test deletes it locally to exercise a real plan-gate failure.
@@ -28,12 +28,12 @@ import {
   describePlanGateFailure,
 } from '../server.mjs';
 import { createEngine, phase1Message, groomMessage } from '../engine.mjs';
-import { MERCURY_ROOT, plansDir, agentRunDir } from '../state.mjs';
+import { RADSVINN_ROOT, plansDir, agentRunDir } from '../state.mjs';
 
 // -- fixtures -----------------------------------------------------------------
 
 const GOOD_SKELETON = JSON.parse(
-  fs.readFileSync(path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json'), 'utf8'),
+  fs.readFileSync(path.join(RADSVINN_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json'), 'utf8'),
 );
 
 // A valid-contract multi-item skeleton with a hard dependency cycle. It drives
@@ -159,7 +159,7 @@ function groomRecorderNoPlan() {
 // Boots a server on a fresh tmp results dir with the given engine, applying (and
 // restoring) any env overrides. `undefined` in envOverrides DELETES the var.
 async function startWithEngine(t, engine, envOverrides = {}) {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-regen-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-regen-'));
   const prevEnv = {};
   for (const [k, v] of Object.entries(envOverrides)) {
     prevEnv[k] = process.env[k];
@@ -266,7 +266,7 @@ test('gate spawn failure: 1 call, no regen (regen_counts.phase1===0) — an empt
   const { engine, calls } = phase1Recorder(() => GOOD_SKELETON);
   // A bogus treecheck binary makes gateSkeleton return {spawnError} — ok:false
   // with NO regen_complaint, exactly the "nothing actionable to fix" case.
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_TREECHECK_BIN: '/nonexistent/treecheck-xyz' });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_TREECHECK_BIN: '/nonexistent/treecheck-xyz' });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -292,7 +292,7 @@ test('Retry after a no-complaint (spawn-error) give-up starts a FRESH session �
   const { engine, calls } = phase1Recorder(() => GOOD_SKELETON);
   // Bogus treecheck → gateSkeleton spawn-errors (ok:false, NO complaint) on
   // EVERY attempt — the "nothing actionable" give-up path, persisted on failure.
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_TREECHECK_BIN: '/nonexistent/treecheck-xyz' });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_TREECHECK_BIN: '/nonexistent/treecheck-xyz' });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -328,7 +328,7 @@ test('groom mirror: a permanently-failing plan gate regenerates threading regenC
   const { engine, calls } = groomRecorder(() => CONTRACT_INVALID_PLAN);
   // Delete the global skip so the REAL plan gate runs and hard-fails on the
   // contract (no grounding repos needed for a contract failure).
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_SKIP_PLAN_ANCHORS: undefined });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_SKIP_PLAN_ANCHORS: undefined });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -385,7 +385,7 @@ test('manual retry after exhaustion: a failed plan at count 2 does ONE more call
 // ---------------------------------------------------------------------------
 
 test('crash-resume mid-loop: a plan reloaded from a mid-loop transient keeps regen_counts.phase1 and resumes at N', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-regen-crash-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-regen-crash-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
 
   // Simulate a process that died mid-loop AFTER one regen: a transient
@@ -462,7 +462,7 @@ test('friendly display: a contract-fail gate → a clean HUMAN sentence, no raw 
     },
   };
   const msg = describeSkeletonGateFailure(contractGate, { scope_hint: 'auto' });
-  assert.match(msg, /^Mercury's draft didn't match the required ticket shape \(a contract error:/, 'a human sentence leads');
+  assert.match(msg, /^Radsvinn's draft didn't match the required ticket shape \(a contract error:/, 'a human sentence leads');
   assert.match(msg, /unknown field "id"/, 'the short reason is embedded');
   // Clean-errors (2026-07-13): the returned message is ONLY the human sentence.
   // The raw gate JSON is console.error'd + persisted on plan.skeleton_gate for
@@ -471,7 +471,7 @@ test('friendly display: a contract-fail gate → a clean HUMAN sentence, no raw 
   assert.doesNotMatch(msg, /skeleton gate failed \(server-side re-verification\)/, 'the raw operator line is NOT on the user surface');
   assert.doesNotMatch(msg, /"checks"|"contract_valid"|"regen_complaint"/, 'no raw gate JSON leaks to the user');
   // The human remedy must survive Slack's 500-char truncation (it leads).
-  assert.ok(msg.slice(0, 500).includes("Mercury's draft didn't match"), 'the human sentence survives truncation');
+  assert.ok(msg.slice(0, 500).includes("Radsvinn's draft didn't match"), 'the human sentence survives truncation');
 });
 
 test('friendly display: a plan-gate hard fail AFTER a non-blocking WARN surfaces the HARD complaint (not truncated away)', () => {
@@ -552,7 +552,7 @@ test('B2 in the groom loop: the per-plan cap passes call 1, then trips BEFORE th
   // 1.7 (>= 1.5) so the pre-check for the would-be regen call trips — exactly
   // one groom call happens, never a second.
   const { engine, calls } = groomRecorder(() => CONTRACT_INVALID_PLAN);
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_SKIP_PLAN_ANCHORS: undefined, MERCURY_PLAN_BUDGET_USD: '1.5' });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_SKIP_PLAN_ANCHORS: undefined, RADSVINN_PLAN_BUDGET_USD: '1.5' });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -638,7 +638,7 @@ test('groom gate-fail-then-fix: 2 calls; call2 carries the gate complaint; final
   const { engine, calls } = groomRecorder((idx) => (idx === 0 ? CONTRACT_INVALID_PLAN : goodPlan()));
   // Delete the global skip so the REAL plan gate runs — a genuine gate:false
   // then gate:true transition, not a stub of it.
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_SKIP_PLAN_ANCHORS: undefined });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_SKIP_PLAN_ANCHORS: undefined });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -662,14 +662,14 @@ test('groom gate-fail-then-fix: 2 calls; call2 carries the gate complaint; final
 // 12. groom no-complaint give-up — mirrors phase1 test #4 (spawn failure /
 //     nothing-actionable give-up), groom side. Used the "cannot read
 //     plan.json" path (gates.mjs gatePlan's own catch) rather than
-//     MERCURY_TREECHECK_BIN, since it needs no extra plumbing and exercises
+//     RADSVINN_TREECHECK_BIN, since it needs no extra plumbing and exercises
 //     the exact path buildCheckerComplaintsBlock's {raw:{error:...}} shape
 //     documents.
 // ---------------------------------------------------------------------------
 
 test('groom no-complaint give-up: a gate that cannot even read plan.json yields NO complaint — 1 call, no wasted regen (regen_counts.groom===0)', async (t) => {
   const { engine, calls } = groomRecorderNoPlan();
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_SKIP_PLAN_ANCHORS: undefined });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_SKIP_PLAN_ANCHORS: undefined });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;
@@ -696,7 +696,7 @@ test('groom no-complaint give-up: a gate that cannot even read plan.json yields 
 // ---------------------------------------------------------------------------
 
 test('groom manual-retry-after-exhaustion: a failed plan at groom count 2 does ONE more call, not a fresh 2x loop', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-regen-groom-exhaust-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-regen-groom-exhaust-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
 
   const planId = randomUUID();
@@ -733,15 +733,15 @@ test('groom manual-retry-after-exhaustion: a failed plan at groom count 2 does O
   fs.writeFileSync(path.join(dir, `${planId}.json`), JSON.stringify(seed, null, 2));
 
   const { engine, calls } = groomRecorder(() => CONTRACT_INVALID_PLAN);
-  const prevSkip = process.env.MERCURY_SKIP_PLAN_ANCHORS;
-  delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
+  const prevSkip = process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+  delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
   const app = createServer({ engine, resultsDir });
   const addr = await app.listen(0, '127.0.0.1');
   const baseUrl = `http://127.0.0.1:${addr.port}`;
   t.after(async () => {
     await app.close();
-    if (prevSkip === undefined) delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
-    else process.env.MERCURY_SKIP_PLAN_ANCHORS = prevSkip;
+    if (prevSkip === undefined) delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+    else process.env.RADSVINN_SKIP_PLAN_ANCHORS = prevSkip;
   });
 
   const reloaded = await getJson(baseUrl, `/plan/${planId}`);
@@ -767,7 +767,7 @@ test('groom manual-retry-after-exhaustion: a failed plan at groom count 2 does O
 // ---------------------------------------------------------------------------
 
 test('groom crash-resume mid-loop: a plan reloaded from a mid-loop transient keeps regen_counts.groom and resumes at N', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-regen-crash-groom-'));
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-regen-crash-groom-'));
   t.after(() => fs.rmSync(resultsDir, { recursive: true, force: true }));
 
   const planId = randomUUID();
@@ -804,15 +804,15 @@ test('groom crash-resume mid-loop: a plan reloaded from a mid-loop transient kee
   fs.writeFileSync(path.join(dir, `${planId}.json`), JSON.stringify(seed, null, 2));
 
   const { engine, calls } = groomRecorder(() => CONTRACT_INVALID_PLAN);
-  const prevSkip = process.env.MERCURY_SKIP_PLAN_ANCHORS;
-  delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
+  const prevSkip = process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+  delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
   const app = createServer({ engine, resultsDir });
   const addr = await app.listen(0, '127.0.0.1');
   const baseUrl = `http://127.0.0.1:${addr.port}`;
   t.after(async () => {
     await app.close();
-    if (prevSkip === undefined) delete process.env.MERCURY_SKIP_PLAN_ANCHORS;
-    else process.env.MERCURY_SKIP_PLAN_ANCHORS = prevSkip;
+    if (prevSkip === undefined) delete process.env.RADSVINN_SKIP_PLAN_ANCHORS;
+    else process.env.RADSVINN_SKIP_PLAN_ANCHORS = prevSkip;
   });
 
   const reloaded = await getJson(baseUrl, `/plan/${planId}`);
@@ -843,7 +843,7 @@ test('groom crash-resume mid-loop: a plan reloaded from a mid-loop transient kee
 
 test('B2 phase1 first-call exemption: a $0 per-plan cap does not block a FRESH plans first phase1 call', async (t) => {
   const { engine } = phase1Recorder(() => GOOD_SKELETON);
-  const { baseUrl } = await startWithEngine(t, engine, { MERCURY_PLAN_BUDGET_USD: '0' });
+  const { baseUrl } = await startWithEngine(t, engine, { RADSVINN_PLAN_BUDGET_USD: '0' });
 
   const created = await postJson(baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   const planId = created.body.plan_id;

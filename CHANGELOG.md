@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to Mercury are documented here. This repo is the **org-neutral product
-seed** (`github.com/0merUfuk/mercury`); the single-tenant transition narrative is intentionally
+All notable changes to Radsvinn are documented here. This repo is the **org-neutral product
+seed** (`github.com/0merUfuk/radsvinn`); the single-tenant transition narrative is intentionally
 not in this repo (see [docs/HISTORY.md](docs/HISTORY.md)).
 
 Format: one section per release, most recent first. Items grouped by **Added**, **Changed**,

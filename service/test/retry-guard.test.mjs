@@ -3,8 +3,8 @@
 //
 // Why a separate file (not http-e2e.test.mjs): `node --test` runs each test
 // FILE in its own child process, so the retry write guard-specific knobs this file flips
-// (MERCURY_FAKE_VERIFY_FAIL, MERCURY_FAKE_CREATE_PARTIAL,
-// MERCURY_FAKE_VERIFY_REJECT) are process-isolated from http-e2e.test.mjs
+// (RADSVINN_FAKE_VERIFY_FAIL, RADSVINN_FAKE_CREATE_PARTIAL,
+// RADSVINN_FAKE_VERIFY_REJECT) are process-isolated from http-e2e.test.mjs
 // running concurrently — no cross-file env leakage is possible. All filesystem state lives under per-test mkdtemp
 // roots (startTestServer / local mkdtemp), so concurrent files never share
 // disk state either. Within this file, top-level tests run sequentially and
@@ -32,7 +32,7 @@ import { createEngine, CREATED_RECORD_FILENAME } from '../engine.mjs';
 
 // Drives a fresh plan through plan -> approve-shape -> create and waits for
 // the create worker to settle (status leaves `creating`). Which terminal
-// state it lands in depends on the MERCURY_FAKE_* knobs the caller set.
+// state it lands in depends on the RADSVINN_FAKE_* knobs the caller set.
 async function driveThroughCreate(ctx) {
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
   assert.equal(created.status, 202);
@@ -61,6 +61,17 @@ function readSentinel(recordPath) {
   return JSON.parse(fs.readFileSync(recordPath, 'utf8')).sentinel;
 }
 
+function writeSpawnTrap(dir, binaryName, markerPath) {
+  const binaryPath = path.join(dir, binaryName);
+  fs.writeFileSync(binaryPath, [
+    '#!/bin/sh',
+    `printf '%s\\n' ${JSON.stringify(`${binaryName} spawned`)} >> ${JSON.stringify(markerPath)}`,
+    'exit 97',
+    '',
+  ].join('\n'));
+  fs.chmodSync(binaryPath, 0o755);
+}
+
 // POSTs the retry, asserts the 202 {status:'creating'} contract, and polls
 // until the recovery worker settles the plan out of `creating`.
 async function retryAndSettle(ctx, planId) {
@@ -73,7 +84,7 @@ async function retryAndSettle(ctx, planId) {
 // -- matrix item 1 -----------------------------------------------------------
 
 test('retry write guard case A heal: full record + verify hiccup — retry re-verifies to created, never re-creates', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_VERIFY_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_VERIFY_FAIL: '1' });
   t.after(() => ctx.close());
 
   // create COMPLETES (full record on disk) but the post-create --verify reads
@@ -92,7 +103,7 @@ test('retry write guard case A heal: full record + verify hiccup — retry re-ve
 
   // "The network heals" — the re-read now comes back green. ctx.close()
   // restores the env var (house pattern from the groom-fail pilot test).
-  process.env.MERCURY_FAKE_VERIFY_FAIL = '0';
+  process.env.RADSVINN_FAKE_VERIFY_FAIL = '0';
   const healed = await retryAndSettle(ctx, planId);
   assert.equal(healed.body.status, 'created', 'a green re-read heals the plan to created');
   assert.equal(healed.body.created.verify_ok, true);
@@ -105,7 +116,7 @@ test('retry write guard case A heal: full record + verify hiccup — retry re-ve
 // -- matrix item 2 -----------------------------------------------------------
 
 test('retry write guard case A verify-still-red: retry lands failed with --cleanup guidance; marker and record preserved', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_VERIFY_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_VERIFY_FAIL: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: failed } = await driveThroughCreate(ctx);
@@ -129,7 +140,7 @@ test('retry write guard case A verify-still-red: retry lands failed with --clean
 // -- matrix item 3 -----------------------------------------------------------
 
 test('retry write guard case B partial block: partial record blocks retry, marks partial:true, and blocks a second retry too', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_PARTIAL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_PARTIAL: '1' });
   t.after(() => ctx.close());
 
   // create-tree dies MID-TREE: engine.create writes the partial record then
@@ -147,7 +158,7 @@ test('retry write guard case B partial block: partial record blocks retry, marks
   // WOULD succeed — so anything that blocks it is the guard itself, and the
   // "already wrote" error text below pins it to handleRetry's guard (the
   // engine-level guard says "refusing to re-create" instead).
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
 
   const blocked = await retryAndSettle(ctx, planId);
   assert.equal(blocked.body.status, 'failed', 'a partial tree is NEVER promoted to created');
@@ -189,10 +200,10 @@ test('retry write guard case B partial block: partial record blocks retry, marks
 
 test('retry write guard case B partial block, verify-fail variant: red recovery read still blocks, cleanup command still inside the Slack window', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FAKE_CREATE_PARTIAL: '1',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FAKE_CREATE_PARTIAL: '1',
     // Not set yet — listed so ctx.close() restores whatever we set mid-test.
-    MERCURY_FAKE_VERIFY_FAIL: undefined,
+    RADSVINN_FAKE_VERIFY_FAIL: undefined,
   });
   t.after(() => ctx.close());
 
@@ -204,8 +215,8 @@ test('retry write guard case B partial block, verify-fail variant: red recovery 
   // This time the recovery verify ITSELF reads red (network blip on the
   // read-back). The block must hold identically, and the error segments must
   // keep the Slack-safe order: reason → cleanup command → verify tail.
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
-  process.env.MERCURY_FAKE_VERIFY_FAIL = '1'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_VERIFY_FAIL = '1'; // ctx.close() restores
 
   const blocked = await retryAndSettle(ctx, planId);
   assert.equal(blocked.body.status, 'failed', 'a red verify never changes the answer — still blocked');
@@ -226,7 +237,7 @@ test('retry write guard case B partial block, verify-fail variant: red recovery 
 // -- matrix item 4 -----------------------------------------------------------
 
 test('retry write guard case B corrupt record: retry fails closed with inspect-manually error; no marker fabricated; file untouched', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_FAIL: '1' });
   t.after(() => ctx.close());
 
   // CREATE_FAIL models dying BEFORE any write — failed, no marker, no record.
@@ -241,7 +252,7 @@ test('retry write guard case B corrupt record: retry fails closed with inspect-m
   const garbage = '{"created": [{"key": "PROJ-'; // torn mid-write: not JSON
   fs.writeFileSync(recordPath, garbage);
 
-  process.env.MERCURY_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
 
   const blocked = await retryAndSettle(ctx, planId);
   assert.equal(blocked.body.status, 'failed', 'an unparseable record fails closed');
@@ -254,7 +265,7 @@ test('retry write guard case B corrupt record: retry fails closed with inspect-m
 // -- matrix item 4, null-literal variant --------------------------------------
 
 test('retry write guard case B null-literal record: a file containing JSON `null` still routes to the guard — fails closed, file untouched', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_FAIL: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: failed } = await driveThroughCreate(ctx);
@@ -269,7 +280,7 @@ test('retry write guard case B null-literal record: a file containing JSON `null
   // fall through the ladder into a promote-capable create pass.
   fs.writeFileSync(recordPath, 'null');
 
-  process.env.MERCURY_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
 
   const blocked = await retryAndSettle(ctx, planId);
   assert.equal(blocked.body.status, 'failed', 'a literal-null record fails closed — never the create ladder');
@@ -282,7 +293,7 @@ test('retry write guard case B null-literal record: a file containing JSON `null
 // -- matrix item 5 -----------------------------------------------------------
 
 test('retry write guard clean-empty fall-through: a record proving zero Jira writes does NOT block retry — create re-runs to created', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_FAIL: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: failed } = await driveThroughCreate(ctx);
@@ -295,7 +306,7 @@ test('retry write guard clean-empty fall-through: a record proving zero Jira wri
   // genuinely-incomplete create forever).
   fs.writeFileSync(recordPath, JSON.stringify({ created: [], links: [] }));
 
-  process.env.MERCURY_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_FAIL = '0'; // ctx.close() restores
 
   const done = await retryAndSettle(ctx, planId);
   assert.equal(done.body.status, 'created', 'a zero-write record falls through to a real retry that succeeds');
@@ -311,7 +322,14 @@ test('retry write guard engine guard: create() refuses over an existing record w
   // Direct unit test of the defense-in-depth layer — no server involved.
   // Explicitly clear the knobs (and restore after) so this test is immune to
   // ordering: the clean-empty leg below runs a REAL fake create.
-  const knobs = ['MERCURY_FAKE_CREATE_FAIL', 'MERCURY_FAKE_CREATE_PARTIAL', 'MERCURY_FAKE_VERIFY_FAIL'];
+  const knobs = [
+    'RADSVINN_FAKE_CREATE_FAIL',
+    'RADSVINN_FAKE_CREATE_PARTIAL',
+    'RADSVINN_FAKE_VERIFY_FAIL',
+    'RADSVINN_AGENT_RUNTIME',
+    'RADSVINN_LLM_PROVIDER',
+    'PATH',
+  ];
   const prev = {};
   for (const k of knobs) { prev[k] = process.env[k]; delete process.env[k]; }
   t.after(() => {
@@ -321,8 +339,15 @@ test('retry write guard engine guard: create() refuses over an existing record w
     }
   });
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-engine-guard-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-engine-guard-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const fixtureBin = path.join(tmp, 'runtime-bin');
+  const spawnMarker = path.join(tmp, 'unexpected-spawn.txt');
+  fs.mkdirSync(fixtureBin, { recursive: true });
+  for (const binaryName of ['claude', 'codex', 'node']) writeSpawnTrap(fixtureBin, binaryName, spawnMarker);
+  process.env.PATH = fixtureBin;
+  process.env.RADSVINN_LLM_PROVIDER = 'anthropic';
+
   const engine = createEngine('fake');
 
   // (1) non-empty record → refuse, and leave the record byte-identical.
@@ -356,23 +381,38 @@ test('retry write guard engine guard: create() refuses over an existing record w
   assert.deepEqual(result.created.map((c) => c.key), ['PROJ-999']);
   assert.equal(JSON.parse(fs.readFileSync(cleanPath, 'utf8')).created.length, 1, 'clean-empty record was overwritten');
 
-  // (5) the REAL engine carries the same guard, and it throws BEFORE any
-  // spawn — so this leg never touches a subprocess, credentials, or Jira.
-  const realDir = path.join(tmp, 'real-non-empty');
-  fs.mkdirSync(realDir, { recursive: true });
-  fs.writeFileSync(path.join(realDir, 'plan.json'), '{}'); // pass the plan.json precondition
-  fs.writeFileSync(path.join(realDir, CREATED_RECORD_FILENAME), JSON.stringify({ created: [{ key: 'PROJ-1' }], links: [] }));
-  await assert.rejects(() => createEngine('real').create({ runDir: realDir }), /refusing to re-create/);
+  // (5) the REAL engine carries the same guard for both supported agent
+  // runtimes. Fixture executables make eager runtime discovery hermetic; every
+  // fixture binary is also a trap, so any unexpected agent or create-tree spawn
+  // writes spawnMarker and exits before it can reach credentials, network, or
+  // actual user tools.
+  assert.equal(process.env.PATH, fixtureBin, 'real-engine guard uses the isolated fixture-only PATH');
+  for (const runtime of ['claude', 'codex']) {
+    process.env.RADSVINN_AGENT_RUNTIME = runtime;
+    const realEngine = createEngine('real');
+    assert.equal(fs.existsSync(spawnMarker), false, `${runtime} runtime discovery must not spawn`);
+
+    const realDir = path.join(tmp, `real-non-empty-${runtime}`);
+    fs.mkdirSync(realDir, { recursive: true });
+    fs.writeFileSync(path.join(realDir, 'plan.json'), '{}'); // pass the plan.json precondition
+    const realRecordPath = path.join(realDir, CREATED_RECORD_FILENAME);
+    const realRecordBody = JSON.stringify({ created: [{ key: `PROJ-${runtime === 'claude' ? '1' : '2'}` }], links: [] });
+    fs.writeFileSync(realRecordPath, realRecordBody);
+
+    await assert.rejects(() => realEngine.create({ runDir: realDir }), /refusing to re-create/);
+    assert.equal(fs.readFileSync(realRecordPath, 'utf8'), realRecordBody, `${runtime} refused create must not touch the record`);
+    assert.equal(fs.existsSync(spawnMarker), false, `${runtime} guard must throw before any agent or create-tree spawn`);
+  }
 });
 
 // -- beyond the matrix: fail-closed edges ------------------------------------
 
 test('retry write guard partial marker survives record deletion: retry stays blocked on the marker alone — never re-creates', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_PARTIAL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_PARTIAL: '1' });
   t.after(() => ctx.close());
 
   const { planId } = await driveThroughCreate(ctx);
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
 
   // First retry plants the durable partial marker (matrix item 3's path).
   const blocked = await retryAndSettle(ctx, planId);
@@ -393,10 +433,10 @@ test('retry write guard partial marker survives record deletion: retry stays blo
 
 test('retry write guard verify REJECTS (spawn failure): the partial marker survives — planted by the handler BEFORE anything awaitable', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FAKE_CREATE_PARTIAL: '1',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FAKE_CREATE_PARTIAL: '1',
     // Not set yet — listed so ctx.close() restores whatever we set mid-test.
-    MERCURY_FAKE_VERIFY_REJECT: undefined,
+    RADSVINN_FAKE_VERIFY_REJECT: undefined,
   });
   t.after(() => ctx.close());
 
@@ -410,8 +450,8 @@ test('retry write guard verify REJECTS (spawn failure): the partial marker survi
   // timeout path) — the worker's catch lands a plain `failed` and never
   // reaches its marker-writing state.update. The marker must ALREADY be on
   // the plan, planted synchronously by handleRetry before the await.
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
-  process.env.MERCURY_FAKE_VERIFY_REJECT = '1'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_VERIFY_REJECT = '1'; // ctx.close() restores
 
   const blocked = await retryAndSettle(ctx, planId);
   assert.equal(blocked.body.status, 'failed', 'a rejecting verify lands failed via the worker catch');
@@ -427,7 +467,7 @@ test('retry write guard verify REJECTS (spawn failure): the partial marker survi
   // handler-side plant this exact chain (reject → delete → retry) fell
   // through the ladder and re-created the tree.
   fs.rmSync(recordPath);
-  process.env.MERCURY_FAKE_VERIFY_REJECT = '0';
+  process.env.RADSVINN_FAKE_VERIFY_REJECT = '0';
   const stillBlocked = await retryAndSettle(ctx, planId);
   assert.equal(stillBlocked.body.status, 'failed', 'marker alone keeps the guard closed after the record is deleted');
   assert.match(stillBlocked.body.error, /cannot prove zero writes/);
@@ -436,10 +476,10 @@ test('retry write guard verify REJECTS (spawn failure): the partial marker survi
 
 test('retry write guard verify-only recovery is never budget-blocked: a tripped daily breaker cannot strand a paid-for tree', async (t) => {
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_FAKE_VERIFY_FAIL: '1',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_FAKE_VERIFY_FAIL: '1',
     // Not set yet — listed so ctx.close() restores whatever we set mid-test.
-    MERCURY_DAILY_HARD_USD: undefined,
+    RADSVINN_DAILY_HARD_USD: undefined,
   });
   t.after(() => ctx.close());
 
@@ -449,8 +489,8 @@ test('retry write guard verify-only recovery is never budget-blocked: a tripped 
   // The daily breaker trips AFTER the tree was already created ($1.7 spent
   // during planning ≥ $0 cap). The recovery read is zero-LLM-spend and must
   // NOT be blocked — otherwise an already-paid-for tree stays unverified.
-  process.env.MERCURY_DAILY_HARD_USD = '0';
-  process.env.MERCURY_FAKE_VERIFY_FAIL = '0';
+  process.env.RADSVINN_DAILY_HARD_USD = '0';
+  process.env.RADSVINN_FAKE_VERIFY_FAIL = '0';
   const healed = await retryAndSettle(ctx, planId);
   assert.equal(healed.body.status, 'created', 'recovery verify runs despite the tripped daily breaker');
   assert.equal(healed.body.created.verify_ok, true);
@@ -459,7 +499,7 @@ test('retry write guard verify-only recovery is never budget-blocked: a tripped 
 // -- budget_blocked is retryable --------------------------------
 
 test('budget-retry behavior: a budget_blocked plan retries once the cap lifts — the Retry button no longer lies', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_DAILY_HARD_USD: '0' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_DAILY_HARD_USD: '0' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -470,7 +510,7 @@ test('budget-retry behavior: a budget_blocked plan retries once the cap lifts �
 
   // The cap "resets" (UTC midnight, or raised) — the worker re-checks both
   // breakers on entry, so the accepted retry proceeds through the pipeline.
-  process.env.MERCURY_DAILY_HARD_USD = '1000'; // restored by ctx.close()
+  process.env.RADSVINN_DAILY_HARD_USD = '1000'; // restored by ctx.close()
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retry.status, 202, 'budget_blocked is retryable (budget-retry behavior) — no more 409ing button');
   assert.equal(retry.body.status, 'breaking_down', 'nothing was built before the block, so retry re-decomposes');
@@ -479,7 +519,7 @@ test('budget-retry behavior: a budget_blocked plan retries once the cap lifts �
 });
 
 test('budget-retry behavior: a still-capped retry re-blocks cleanly — accepted, then honestly budget_blocked again, never a 409 or a wedge', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_DAILY_HARD_USD: '0' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_DAILY_HARD_USD: '0' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -500,7 +540,7 @@ test('budget-retry behavior: a still-capped retry re-blocks cleanly — accepted
 // was therefore never rendered at ANY human gate.
 
 test('gate-check: a plan whose PLAN gate failed retries into grooming (which re-gates) — NEVER into create', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // Drive to plan_ready normally (both artifacts on disk, both gates green)…
@@ -530,7 +570,7 @@ test('gate-check: a plan whose PLAN gate failed retries into grooming (which re-
 });
 
 test('gate-check: a MISSING plan-gate result fails closed the same way (the phase never provably completed)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -549,7 +589,7 @@ test('gate-check: a MISSING plan-gate result fails closed the same way (the phas
 });
 
 test('gate-check: a red SKELETON gate retries all the way back to breaking_down (re-decompose re-gates the shape)', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -586,7 +626,7 @@ test('gate-check: a red SKELETON gate retries all the way back to breaking_down 
 // never the reverse.
 
 test('gate-truthfulness (review): handleRetry judges the CURRENT plan_gate/plan.json after its body-read yield, not the pre-await snapshot', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_GROOM_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_GROOM_FAIL: '1' });
   t.after(() => ctx.close());
 
   // Drive to `failed` at the groom step: skeleton.json + a PASSING

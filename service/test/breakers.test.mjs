@@ -7,13 +7,13 @@ import { startTestServer, postJson, getJson, pollUntil } from './helpers.mjs';
 import { recordSpend, recordSpendNanos, getDailySpend, getDailySpendNanos, getCostTelemetryLock, checkDaily, checkPlanBudget } from '../breakers.mjs';
 import { createServer } from '../server.mjs';
 import { createEngine } from '../engine.mjs';
-import { MERCURY_ROOT, agentRunDir } from '../state.mjs';
+import { RADSVINN_ROOT, agentRunDir } from '../state.mjs';
 
 // A valid-contract skeleton with a real dependency cycle. It remains a hard
 // structural failure after tree-width conventions became advisory, so B2 can
 // prove the planning spend cap still bounds a regen loop.
 function badCycleSkeleton() {
-  const s = JSON.parse(fs.readFileSync(path.join(MERCURY_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json'), 'utf8'));
+  const s = JSON.parse(fs.readFileSync(path.join(RADSVINN_ROOT, 'fixtures', 'e2e-sample', 'skeleton.json'), 'utf8'));
   s.items[0].depends_on = ['i2']; // fixture i2 already depends on i1
   return s;
 }
@@ -25,9 +25,9 @@ test('human-approved zero-LLM create ignores exhausted plan and daily breakers w
   // work, not an LLM call. Mutating either pre-create breaker back in makes
   // this fail as budget_blocked.
   const ctx = await startTestServer({
-    MERCURY_SKIP_PLAN_ANCHORS: '1',
-    MERCURY_PLAN_BUDGET_USD: '1',
-    MERCURY_DAILY_HARD_USD: '1',
+    RADSVINN_SKIP_PLAN_ANCHORS: '1',
+    RADSVINN_PLAN_BUDGET_USD: '1',
+    RADSVINN_DAILY_HARD_USD: '1',
   });
   t.after(() => ctx.close());
 
@@ -68,12 +68,12 @@ test('human-approved zero-LLM create ignores exhausted plan and daily breakers w
   assert.ok(final.body.created && final.body.created.record_path, 'the explicit create alone writes a Jira record');
 });
 
-test('daily hard cap (MERCURY_DAILY_HARD_USD=0.5): first call proceeds, next call is refused', async (t) => {
+test('daily hard cap (RADSVINN_DAILY_HARD_USD=0.5): first call proceeds, next call is refused', async (t) => {
   // Daily total starts at 0 for a fresh results dir, so phase1's own
   // pre-call check (0 < 0.5) is never blocked by its own future cost — it
   // must reach a state where the ALREADY-recorded total exceeds hard before
   // the next call is attempted.
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_DAILY_HARD_USD: '0.5' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_DAILY_HARD_USD: '0.5' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -107,15 +107,15 @@ test('daily hard cap (MERCURY_DAILY_HARD_USD=0.5): first call proceeds, next cal
 // B2 — the per-plan budget cap is enforced INSIDE the phase1 regen loop
 // ---------------------------------------------------------------------------
 
-test('B2: the per-plan cap trips BETWEEN regens (MERCURY_PLAN_BUDGET_USD=0.5) — a regen cannot bypass it', async (t) => {
+test('B2: the per-plan cap trips BETWEEN regens (RADSVINN_PLAN_BUDGET_USD=0.5) — a regen cannot bypass it', async (t) => {
   // A permanently gate-failing decompose ($0.8/call) wants to regenerate. With
   // cap=0.5: the FIRST call is exempt (cost starts at 0), but before the FIRST
   // regen call the accumulated $0.8 >= $0.5 trips the cap → budget_blocked
   // after exactly ONE call. Without the in-loop B2 check the loop would run to
   // its N=2 ceiling (3 calls) — so this proves the cap bounds the regen loop.
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-b2-loop-'));
-  const prev = process.env.MERCURY_PLAN_BUDGET_USD;
-  process.env.MERCURY_PLAN_BUDGET_USD = '0.5';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-b2-loop-'));
+  const prev = process.env.RADSVINN_PLAN_BUDGET_USD;
+  process.env.RADSVINN_PLAN_BUDGET_USD = '0.5';
 
   const calls = [];
   const engine = {
@@ -132,8 +132,8 @@ test('B2: the per-plan cap trips BETWEEN regens (MERCURY_PLAN_BUDGET_USD=0.5) �
   const baseUrl = `http://127.0.0.1:${addr.port}`;
   t.after(async () => {
     await app.close();
-    if (prev === undefined) delete process.env.MERCURY_PLAN_BUDGET_USD;
-    else process.env.MERCURY_PLAN_BUDGET_USD = prev;
+    if (prev === undefined) delete process.env.RADSVINN_PLAN_BUDGET_USD;
+    else process.env.RADSVINN_PLAN_BUDGET_USD = prev;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
 
@@ -156,7 +156,7 @@ test('B2: the per-plan cap trips BETWEEN regens (MERCURY_PLAN_BUDGET_USD=0.5) �
 // ---------------------------------------------------------------------------
 
 test('spend serialization: 50 concurrent recordSpend(0.01) total EXACTLY 0.50 — the in-process queue serializes every read-modify-write', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-spend-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-spend-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const totals = await Promise.all(
@@ -176,7 +176,7 @@ test('spend serialization: 50 concurrent recordSpend(0.01) total EXACTLY 0.50 �
 });
 
 test('spend serialization: a failed spend write rejects its caller but never wedges the queue', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-spend-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-spend-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   // A results "dir" that is actually a FILE makes writeDaily's mkdir throw.
@@ -188,7 +188,7 @@ test('spend serialization: a failed spend write rejects its caller but never wed
 });
 
 test('metering: concurrent sub-cent charges preserve every nanodollar and invalid fixed-point plan cost blocks', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-nano-spend-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-nano-spend-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   await Promise.all(Array.from({ length: 50 }, () => recordSpendNanos(dir, 1)));
   assert.equal(getDailySpendNanos(dir), 50, 'no sub-cent charge disappears in the serialized ledger');
@@ -199,7 +199,7 @@ test('metering: concurrent sub-cent charges preserve every nanodollar and invali
 });
 
 test('metering: a failed ledger write leaves a root-level in-memory lock for later LLM calls', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-lock-spend-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-lock-spend-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const bogus = path.join(dir, 'not-a-dir');
   fs.writeFileSync(bogus, 'x');
@@ -209,18 +209,18 @@ test('metering: a failed ledger write leaves a root-level in-memory lock for lat
 });
 
 test('breaker threshold env can be injected without changing default policy or spend storage', (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-breaker-env-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-breaker-env-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   assert.equal(checkDaily(dir, {}).blocked, false, 'an empty injected env uses the documented daily defaults');
   assert.equal(
-    checkDaily(dir, { MERCURY_DAILY_HARD_USD: '0', MERCURY_DAILY_SOFT_USD: '0' }).blocked,
+    checkDaily(dir, { RADSVINN_DAILY_HARD_USD: '0', RADSVINN_DAILY_SOFT_USD: '0' }).blocked,
     true,
     'an injected hard limit is honored',
   );
   assert.equal(checkPlanBudget({ cost_usd: 0 }, {}).blocked, false, 'an empty injected env uses the plan default');
   assert.equal(
-    checkPlanBudget({ cost_usd: 0 }, { MERCURY_PLAN_BUDGET_USD: '0' }).blocked,
+    checkPlanBudget({ cost_usd: 0 }, { RADSVINN_PLAN_BUDGET_USD: '0' }).blocked,
     true,
     'an injected per-plan limit is honored',
   );

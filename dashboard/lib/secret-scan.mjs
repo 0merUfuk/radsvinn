@@ -1,5 +1,5 @@
 // lib/secret-scan.mjs — the §3.4 CI guard: the built client bundle must
-// never contain DASH_/MERCURY_ env names or token-shaped strings. Written as
+// never contain DASH_/RADSVINN_ or deprecated env names or token-shaped strings. Written as
 // a reusable scanner so it doubles as (a) a unit-testable pattern match and
 // (b) the real guard run over whatever ships in `public/` once a UI lands.
 
@@ -9,6 +9,7 @@ import path from 'node:path';
 // Order matters only for readability; every pattern is checked independently.
 export const SECRET_PATTERNS = [
   { name: 'DASH_ env name', re: /\bDASH_[A-Z0-9_]+\b/g },
+  { name: 'RADSVINN_ env name', re: /\bRADSVINN_[A-Z0-9_]+\b/g },
   { name: 'MERCURY_ env name', re: /\bMERCURY_[A-Z0-9_]+\b/g },
   { name: 'OAuth client_secret literal', re: /\bclient_secret\b\s*[:=]/gi },
   { name: 'GitHub personal access token (ghp_)', re: /\bghp_[A-Za-z0-9]{20,}\b/g },

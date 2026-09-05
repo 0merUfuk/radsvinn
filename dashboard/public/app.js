@@ -1,4 +1,4 @@
-// Mercury dashboard — client renderer (progressive enhancement over the BFF).
+// Radsvinn dashboard — client renderer (progressive enhancement over the BFF).
 // XSS discipline: every plan-derived string becomes a TEXT NODE via el();
 // NO innerHTML/insertAdjacentHTML/outerHTML anywhere in this file (CI-guarded).
 // All data comes from the same-origin /api/* surface; the BFF holds the planner
@@ -104,7 +104,7 @@ function bucketOf(st) {
 }
 async function pagePlans(main) {
   crumb('Plan', 'Plans');
-  document.title = 'Mercury — Plans';
+  document.title = 'Radsvinn — Plans';
   main.classList.add('enter'); // page furniture animates once; poll updates never re-trigger it
   const state = { bucket: 'all', q: '', mine: false, plans: [] };
   const prevStatus = new Map(); // plan_id -> last seen status, for the update flash
@@ -214,7 +214,7 @@ function radioGrp(name, legendText, defs, def, helpText) {
 }
 async function pagePlanNew(main) {
   crumb('Plan', 'New plan');
-  document.title = 'Mercury — New plan';
+  document.title = 'Radsvinn — New plan';
   const canPlan = ME.roles.includes('planner');
   const desc = el('textarea', { id: 'f-desc', maxlength: '8000' });
   const counter = el('div', { class: 'counter' }, '0 / 8000');
@@ -247,7 +247,7 @@ async function pagePlanNew(main) {
       [['en', 'English (default)'], ['tr', 'Türkçe'], ['both', 'Both — English then Türkçe']], 'en',
       'Technical jargon stays English in every mode.')),
     el('section', null, radioGrp('scope', 'How big is this?',
-      [['auto', 'Let Mercury judge (default)'], ['single', 'One ticket'], ['small', 'A few tickets (2–5)'], ['epic', 'Large — full epic']], 'auto')),
+      [['auto', 'Let Radsvinn judge (default)'], ['single', 'One ticket'], ['small', 'A few tickets (2–5)'], ['epic', 'Large — full epic']], 'auto')),
     el('section', null, radioGrp('ground', 'Code grounding',
       [['full', 'Full — read the code (default)'],
         ['light', 'Light — skip deep code reading', 'cheaper and faster, but anchors are not deeply verified — the shape gate will be marked light ⚠']], 'full')),
@@ -269,7 +269,7 @@ function tlIndex(st) {
     cancelling: 6, cancelled: 6 }[st] ?? null;
 }
 async function pagePlanDetail(main, planId) {
-  document.title = `Mercury — ${id8(planId)}`;
+  document.title = `Radsvinn — ${id8(planId)}`;
   crumb('Plan', 'Plans', id8(planId));
   const ui = { editing: false, dialogOpen: false, plan: null, banner: null, firstRender: true, justChanged: false };
 
@@ -663,7 +663,7 @@ async function pagePlanDetail(main, planId) {
 // ---------------------------------------------------------------- operations
 async function pageOperations(main) {
   crumb('Operate', 'Operations');
-  document.title = 'Mercury — Operations';
+  document.title = 'Radsvinn — Operations';
   main.classList.add('enter');
   let firstDraw = true;
   async function draw() {
@@ -703,7 +703,7 @@ async function pageOperations(main) {
 // ---------------------------------------------------------------- audit
 async function pageAudit(main) {
   crumb('Govern', 'Audit');
-  document.title = 'Mercury — Audit';
+  document.title = 'Radsvinn — Audit';
   main.classList.add('enter');
   const r = await api('/api/audit');
   const rows = (r.body.records || []).map((a) => el('tr', null,
@@ -723,13 +723,13 @@ async function pageAudit(main) {
 // ---------------------------------------------------------------- settings
 const ROLE_META = [
   ['viewer', 'Read plans, operations health, and the audit trail.', 'every active org member', true],
-  ['planner', 'Start plans; reject and retry them. Spends planning budget, never writes Jira.', 'team mercury-planners'],
-  ['approver', 'Edit and approve the shape — human gate 1. Every edit is deterministically re-gated.', 'team mercury-approvers'],
-  ['creator', 'Create and cancel Jira trees — human gate 2. Named, typed-id ceremony; cancel-only undo.', 'team mercury-creators'],
+  ['planner', 'Start plans; reject and retry them. Spends planning budget, never writes Jira.', 'configured planner team'],
+  ['approver', 'Edit and approve the shape — human gate 1. Every edit is deterministically re-gated.', 'configured approver team'],
+  ['creator', 'Create and cancel Jira trees — human gate 2. Named, typed-id ceremony; cancel-only undo.', 'configured creator team'],
 ];
 async function pageSettings(main) {
   crumb('Govern', 'Settings');
-  document.title = 'Mercury — Settings';
+  document.title = 'Radsvinn — Settings';
   const idFacts = el('dl', { class: 'kvwide' });
   const fact = (k, v, mono) => idFacts.append(el('dt', null, k), el('dd', { class: mono ? 'mono' : undefined }, v));
   fact('Signed in as', `${ME.display}`);
@@ -752,7 +752,7 @@ async function pageSettings(main) {
 
   const aboutFacts = el('dl', { class: 'kvwide' });
   const about = (k, v, mono) => aboutFacts.append(el('dt', null, k), el('dd', { class: mono ? 'mono' : undefined }, v));
-  about('Dashboard', 'Mercury BFF — the planner credential stays server-side and never reaches this page', false);
+  about('Dashboard', 'Radsvinn BFF — the planner credential stays server-side and never reaches this page', false);
   about('Planner', 'reached only by the server-side BFF at its configured planner URL', false);
   about('Design record', 'docs/ARCHITECTURE.md', true);
   about('Visual convention', 'Grayscale Technical Interface Convention', false);

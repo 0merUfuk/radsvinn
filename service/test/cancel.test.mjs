@@ -3,7 +3,7 @@
 //
 // Why a separate file (not http-e2e.test.mjs): `node --test` runs each test
 // FILE in its own child process, so the cancel flow-specific knob this file flips
-// (MERCURY_FAKE_CLEANUP_FAIL, plus the retry write guard knobs it borrows to stage a
+// (RADSVINN_FAKE_CLEANUP_FAIL, plus the retry write guard knobs it borrows to stage a
 // partial tree) is process-isolated from the other suites running
 // concurrently — no cross-file env leakage is possible. All filesystem
 // state lives under per-test mkdtemp roots; within this file, top-level
@@ -28,7 +28,7 @@ import { CREATED_RECORD_FILENAME } from '../engine.mjs';
 
 // Drives a fresh plan through plan -> approve-shape -> create and waits for
 // the create worker to settle (status leaves `creating`). Which terminal
-// state it lands in depends on the MERCURY_FAKE_* knobs the caller set.
+// state it lands in depends on the RADSVINN_FAKE_* knobs the caller set.
 // (Same helper shape as retry-guard.test.mjs.)
 async function driveThroughCreate(ctx) {
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -56,7 +56,7 @@ async function cancelAndSettle(ctx, planId) {
 // -----------------------------------------------------------------------------
 
 test('cancel flow cancel from created: 202 cancelling -> cancelled; marker gains cancelled:true, keys/record preserved, error gone; already-cancelled re-cancel 409s', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);
@@ -79,7 +79,7 @@ test('cancel flow cancel from created: 202 cancelling -> cancelled; marker gains
 });
 
 test('cancel flow cancel from retry write guard failed-with-partial-tree: the CLI dead-end escape — partial marker cancels to cancelled, partial:true preserved', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CREATE_PARTIAL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CREATE_PARTIAL: '1' });
   t.after(() => ctx.close());
 
   // Stage exactly retry write guard's surfaced partial tree: create-tree dies mid-tree
@@ -89,7 +89,7 @@ test('cancel flow cancel from retry write guard failed-with-partial-tree: the CL
   // precondition on the failed surface.
   const { planId, settled: failed } = await driveThroughCreate(ctx);
   assert.equal(failed.body.status, 'failed');
-  process.env.MERCURY_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
+  process.env.RADSVINN_FAKE_CREATE_PARTIAL = '0'; // ctx.close() restores
   const retry = await postJson(ctx.baseUrl, `/plan/${planId}/retry`, {});
   assert.equal(retry.status, 202);
   const blocked = await pollUntil(() => getJson(ctx.baseUrl, `/plan/${planId}`), (r) => r.body.status !== 'creating');
@@ -106,7 +106,7 @@ test('cancel flow cancel from retry write guard failed-with-partial-tree: the CL
 });
 
 test('cancel flow 409s: no created record — from plan_ready and from a failed-without-record plan', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   // plan_ready: nothing was ever written to Jira — nothing to cancel.
@@ -125,7 +125,7 @@ test('cancel flow 409s: no created record — from plan_ready and from a failed-
 });
 
 test('cancel flow 409: failed WITHOUT a record (pilot groom failure) has nothing to cancel', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_GROOM_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_GROOM_FAIL: '1' });
   t.after(() => ctx.close());
 
   const created = await postJson(ctx.baseUrl, '/plan', { description: 'x'.repeat(50), requester: 'test-requester' });
@@ -143,7 +143,7 @@ test('cancel flow 409: failed WITHOUT a record (pilot groom failure) has nothing
 });
 
 test('cancel flow cleanup failure: failed with re-click guidance + cleanup command inside the 500-char Slack window; marker preserved; re-cancel completes', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1', MERCURY_FAKE_CLEANUP_FAIL: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1', RADSVINN_FAKE_CLEANUP_FAIL: '1' });
   t.after(() => ctx.close());
 
   const { planId, settled: done } = await driveThroughCreate(ctx);
@@ -170,7 +170,7 @@ test('cancel flow cleanup failure: failed with re-click guidance + cleanup comma
   assert.ok(fs.existsSync(recordPath), 'the record survives the failed sweep');
 
   // "The network heals" — clear the knob and re-click. ctx.close() restores.
-  process.env.MERCURY_FAKE_CLEANUP_FAIL = '0';
+  process.env.RADSVINN_FAKE_CLEANUP_FAIL = '0';
   const cancelled = await cancelAndSettle(ctx, planId);
   assert.equal(cancelled.body.status, 'cancelled', 'the re-click completes the cancel');
   assert.equal(cancelled.body.created.cancelled, true);
@@ -178,16 +178,16 @@ test('cancel flow cleanup failure: failed with re-click guidance + cleanup comma
 });
 
 test('cancel flow crash-resume: a cancel interrupted by restart reloads as failed with the marker intact — re-clicking cancel completes', async (t) => {
-  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-cancel-resume-'));
-  const prevResultsDir = process.env.MERCURY_RESULTS_DIR;
-  const prevEngine = process.env.MERCURY_ENGINE;
-  process.env.MERCURY_RESULTS_DIR = resultsDir;
-  process.env.MERCURY_ENGINE = 'fake';
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-cancel-resume-'));
+  const prevResultsDir = process.env.RADSVINN_RESULTS_DIR;
+  const prevEngine = process.env.RADSVINN_ENGINE;
+  process.env.RADSVINN_RESULTS_DIR = resultsDir;
+  process.env.RADSVINN_ENGINE = 'fake';
   t.after(() => {
-    if (prevResultsDir === undefined) delete process.env.MERCURY_RESULTS_DIR;
-    else process.env.MERCURY_RESULTS_DIR = prevResultsDir;
-    if (prevEngine === undefined) delete process.env.MERCURY_ENGINE;
-    else process.env.MERCURY_ENGINE = prevEngine;
+    if (prevResultsDir === undefined) delete process.env.RADSVINN_RESULTS_DIR;
+    else process.env.RADSVINN_RESULTS_DIR = prevResultsDir;
+    if (prevEngine === undefined) delete process.env.RADSVINN_ENGINE;
+    else process.env.RADSVINN_ENGINE = prevEngine;
     fs.rmSync(resultsDir, { recursive: true, force: true });
   });
 

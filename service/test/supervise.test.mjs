@@ -1,6 +1,6 @@
 // supervise.test.mjs — B5: smoke tests over the REAL supervisor
 // (service/supervise.mjs) driven through its designed-in env seams
-// (MERCURY_SUPERVISE_{SERVER,BRIDGE}_CMD + the health/backoff knobs)
+// (RADSVINN_SUPERVISE_{SERVER,BRIDGE}_CMD + the health/backoff knobs)
 // against tiny fixture scripts. CI-safe: no docker, no network beyond
 // loopback, every child is killed in t.after.
 
@@ -36,17 +36,17 @@ function freePort() {
 function startSupervisor(t, { serverFixture, bridgeFixture, env = {} }) {
   const cleanEnv = { ...process.env };
   for (const k of Object.keys(cleanEnv)) {
-    if (k.startsWith('MERCURY_SUPERVISE_')) delete cleanEnv[k];
+    if (k.startsWith('RADSVINN_SUPERVISE_')) delete cleanEnv[k];
   }
-  delete cleanEnv.MERCURY_PORT;
+  delete cleanEnv.RADSVINN_PORT;
 
   const child = spawn(process.execPath, [SUPERVISE], {
     cwd: ROOT,
     env: {
       ...cleanEnv,
-      MERCURY_SUPERVISE_SERVER_CMD: `${process.execPath} ${serverFixture}`,
-      MERCURY_SUPERVISE_BRIDGE_CMD: `${process.execPath} ${bridgeFixture}`,
-      MERCURY_SUPERVISE_HEALTH_POLL_MS: '50',
+      RADSVINN_SUPERVISE_SERVER_CMD: `${process.execPath} ${serverFixture}`,
+      RADSVINN_SUPERVISE_BRIDGE_CMD: `${process.execPath} ${bridgeFixture}`,
+      RADSVINN_SUPERVISE_HEALTH_POLL_MS: '50',
       ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -75,7 +75,7 @@ test('B5: happy boot — server first, bridge only after /healthz answers; SIGTE
   const { child, out, exited } = startSupervisor(t, {
     serverFixture: FIXTURE_SERVER,
     bridgeFixture: FIXTURE_BRIDGE,
-    env: { MERCURY_PORT: String(port) },
+    env: { RADSVINN_PORT: String(port) },
   });
 
   await until(() => out.stdout.includes('fixture-bridge started'));
@@ -94,16 +94,16 @@ test('B5: happy boot — server first, bridge only after /healthz answers; SIGTE
 
 test('B5: a crashed child is RESTARTED (with backoff) and the supervisor keeps running', async (t) => {
   const port = await freePort();
-  const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mercury-supervise-test-')), 'crashed-once');
+  const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'radsvinn-supervise-test-')), 'crashed-once');
   t.after(() => fs.rmSync(path.dirname(marker), { recursive: true, force: true }));
 
   const { child, out, exited } = startSupervisor(t, {
     serverFixture: FIXTURE_SERVER,
     bridgeFixture: FIXTURE_CRASH_ONCE,
     env: {
-      MERCURY_PORT: String(port),
-      MERCURY_TEST_MARKER: marker,
-      MERCURY_SUPERVISE_BACKOFF_BASE_MS: '50',
+      RADSVINN_PORT: String(port),
+      RADSVINN_TEST_MARKER: marker,
+      RADSVINN_SUPERVISE_BACKOFF_BASE_MS: '50',
     },
   });
 
@@ -124,8 +124,8 @@ test('B5: a tight crash loop (>5 restarts in the window) is FATAL — exit 1 so 
     serverFixture: FIXTURE_SERVER,
     bridgeFixture: FIXTURE_CRASH_LOOP,
     env: {
-      MERCURY_PORT: String(port),
-      MERCURY_SUPERVISE_BACKOFF_BASE_MS: '10',
+      RADSVINN_PORT: String(port),
+      RADSVINN_SUPERVISE_BACKOFF_BASE_MS: '10',
     },
   });
 
@@ -143,9 +143,9 @@ test('B5: a spawn-error child (nonexistent binary) runs the restart policy EXACT
     serverFixture: FIXTURE_SERVER,
     bridgeFixture: FIXTURE_BRIDGE, // overridden by the env below
     env: {
-      MERCURY_PORT: String(port),
-      MERCURY_SUPERVISE_BRIDGE_CMD: '/nonexistent/mercury-no-such-binary',
-      MERCURY_SUPERVISE_BACKOFF_BASE_MS: '10',
+      RADSVINN_PORT: String(port),
+      RADSVINN_SUPERVISE_BRIDGE_CMD: '/nonexistent/radsvinn-no-such-binary',
+      RADSVINN_SUPERVISE_BACKOFF_BASE_MS: '10',
     },
   });
 
@@ -167,8 +167,8 @@ test('B5: a server that never becomes healthy is FATAL after the deadline — th
     serverFixture: FIXTURE_IDLE,
     bridgeFixture: FIXTURE_BRIDGE,
     env: {
-      MERCURY_PORT: String(port),
-      MERCURY_SUPERVISE_HEALTH_TIMEOUT_MS: '600',
+      RADSVINN_PORT: String(port),
+      RADSVINN_SUPERVISE_HEALTH_TIMEOUT_MS: '600',
     },
   });
 

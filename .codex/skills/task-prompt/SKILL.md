@@ -1,4 +1,4 @@
-# Mercury Task Prompt (Codex)
+# Radsvinn Task Prompt (Codex)
 
 Generate a scoped, gated manager brief. Output to `tasks/task-prompts/{date}-{slug}.md`.
 
@@ -20,4 +20,4 @@ Sections:
 
 Never skip the acknowledgment gate. Never apply LIVE rigor to a DEV-only task. Never allow the LLM to write to the tracker.
 
-Command alias: `mercury-task-prompt`.
+Command alias: `radsvinn-task-prompt`.

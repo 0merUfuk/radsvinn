@@ -1,4 +1,5 @@
-// slack-blocks.mjs — pure Slack Block Kit message builders for the Mercury
+import { readEnv } from '../dashboard/lib/env.mjs';
+// slack-blocks.mjs — pure Slack Block Kit message builders for the Radsvinn
 // Slack bridge (service/slack.mjs). No IO, no Slack/HTTP calls: every export
 // here is a plain function that takes plan data (the shape GET /plan/{id}
 // returns — `toPublicView()` in server.mjs — optionally carrying a
@@ -11,14 +12,14 @@
 //
 // Implements the Slack approval surface described in docs/ARCHITECTURE.md.
 
-// The Jira browse base is derived from MERCURY_JIRA_SITE_URL (the operator's
+// The Jira browse base is derived from RADSVINN_JIRA_SITE_URL (the operator's
 // Jira site, e.g. https://your-domain.atlassian.net) — browse links are
 // `${site}/browse/<KEY>`. No hardcoded site: the value is read once at module
 // load (the container env is populated before the Slack bridge imports this
 // module) and the falls-back-to-example placeholder keeps this pure renderer
 // crash-free when the site is unconfigured. This is the module's only env read;
 // every export stays a pure function of its plan-data argument.
-const JIRA_SITE_URL = String(process.env.MERCURY_JIRA_SITE_URL || 'https://your-domain.atlassian.net').trim().replace(/\/+$/, '');
+const JIRA_SITE_URL = String(readEnv('RADSVINN_JIRA_SITE_URL') || 'https://your-domain.atlassian.net').trim().replace(/\/+$/, '');
 const JIRA_BROWSE_BASE = `${JIRA_SITE_URL}/browse`;
 const DEFAULT_ACK_TEXT = "📋 Planning… I'll post the proposed shape here shortly.";
 
@@ -169,7 +170,7 @@ function statusLabel(status) {
 // Honest gate line. The old "gate: ✅ treecheck
 // OK" read as "this plan was checked and passed"; what the machine actually
 // verified is STRUCTURE (and, at plan_ready, anchor existence — unless a
-// fake-engine server translated MERCURY_SKIP_PLAN_ANCHORS=1 into an explicit
+// fake-engine server translated RADSVINN_SKIP_PLAN_ANCHORS=1 into an explicit
 // whole-plan-gate skip, whose result is `{ok:true, skipped:true}`).
 // Correctness of the ticket CONTENT is checked by nobody but the human
 // reading this message — say so on both gate surfaces.
@@ -177,7 +178,7 @@ const HONEST_GATE_TAIL = 'correctness NOT auto-checked — you are the reviewer'
 
 function planGateLine(planGate) {
   // Fail closed: only a PRESENT, non-skipped, ok gate result has actually
-  // verified anything. The fake-server-only MERCURY_SKIP_PLAN_ANCHORS
+  // verified anything. The fake-server-only RADSVINN_SKIP_PLAN_ANCHORS
   // compatibility knob covers the WHOLE plan gate (structure AND anchors),
   // not just anchor resolution — so a skipped or absent gate must not print
   // `structure ✅` either; that would claim a check that never ran, exactly
@@ -726,7 +727,7 @@ export function renderPlanText(plan) {
   const sub = '-'.repeat(78);
 
   const out = [];
-  out.push('MERCURY PLAN — FULL TICKET TEXT (read before Create)');
+  out.push('RADSVINN PLAN — FULL TICKET TEXT (read before Create)');
   out.push(`plan: ${(plan && plan.plan_id) || '(unknown)'}`);
   out.push('');
   // Attach mode rides the full-truth file too:
@@ -998,7 +999,7 @@ export function buildPlanWizardView({ channel, requester, requesterId, prefillTe
   return {
     type: 'modal',
     callback_id: 'plan_wizard',
-    title: { type: 'plain_text', text: 'Plan with Mercury' },
+    title: { type: 'plain_text', text: 'Plan with Radsvinn' },
     submit: { type: 'plain_text', text: 'Plan it' },
     close: { type: 'plain_text', text: 'Cancel' },
     private_metadata: JSON.stringify({ channel, requester, requester_id: requesterId }),
@@ -1036,9 +1037,9 @@ export function buildPlanWizardView({ channel, requester, requesterId, prefillTe
         element: {
           type: 'radio_buttons',
           action_id: 'scope_hint',
-          initial_option: radioOption('Let Mercury judge (default)', 'auto'),
+          initial_option: radioOption('Let Radsvinn judge (default)', 'auto'),
           options: [
-            radioOption('Let Mercury judge (default)', 'auto'),
+            radioOption('Let Radsvinn judge (default)', 'auto'),
             radioOption('One ticket — no epic, no breakdown', 'single'),
             radioOption('A few tickets (2-5) — no epic', 'small'),
             radioOption('Large — full epic breakdown', 'epic'),

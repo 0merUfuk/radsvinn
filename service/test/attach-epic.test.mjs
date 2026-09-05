@@ -7,7 +7,7 @@
 // This file proves the SERVICE wire on the fake engine: a runDir plan.json
 // whose epic carries existing_key produces a created-record with
 // `attached_epic` set and NO Epic entry in `created[]` — created[] is what
-// cleanup/cancel sweep (create-tree.mjs cancelOrder), and an epic Mercury did
+// cleanup/cancel sweep (create-tree.mjs cancelOrder), and an epic Radsvinn did
 // not create must never be transitioned. The real tool's attach behavior (GET
 // verification before any write, no epic POST, L0 parenting under the
 // existing key, die-on-typo, cleanup exclusion) is proven at the tool level
@@ -38,7 +38,7 @@ async function driveToPlanReady(ctx) {
 }
 
 test('existing_key wire (fake engine): plan.json with epic.existing_key → record carries attached_epic, created[] has NO Epic entry', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, runDir } = await driveToPlanReady(ctx);
@@ -66,7 +66,7 @@ test('existing_key wire (fake engine): plan.json with epic.existing_key → reco
   assert.equal(
     record.created.some((c) => c.type === 'Epic'),
     false,
-    'created[] carries NO Epic entry — cleanup/cancel sweep created[] and must never transition an epic Mercury did not create',
+    'created[] carries NO Epic entry — cleanup/cancel sweep created[] and must never transition an epic Radsvinn did not create',
   );
   // The public view's created marker mirrors the record's created[] — the
   // attached epic never rides items/keys (cancel keys off this marker's
@@ -81,7 +81,7 @@ test('existing_key wire (fake engine): plan.json with epic.existing_key → reco
 });
 
 test('existing_key wire (fake engine): a null existing_key keeps the pre-fix shape — Epic in created[], no attached_epic', async (t) => {
-  const ctx = await startTestServer({ MERCURY_SKIP_PLAN_ANCHORS: '1' });
+  const ctx = await startTestServer({ RADSVINN_SKIP_PLAN_ANCHORS: '1' });
   t.after(() => ctx.close());
 
   const { planId, runDir } = await driveToPlanReady(ctx);

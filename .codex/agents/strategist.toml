@@ -1,5 +1,5 @@
 name = "strategist"
-description = "Architecture and research agent for Mercury. Designs and writes ADRs; does not implement."
+description = "Architecture and research agent for Radsvinn. Designs and writes ADRs; does not implement."
 model = "o3-pro"
 tools = ["read", "write", "web_search", "web_fetch", "grep", "glob", "bash"]
 rules = ["session-protocol.md", "safety-spine.md", "coupling-map.md", "documentation-conventions.md"]

@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"fixture-thread"}
+{"type":"item.completed","item":{"id":"fixture-warning","type":"error","message":"Ignoring malformed agent role definition: fixture-only"}}
+{"type":"item.completed","item":{"id":"fixture-message","type":"agent_message","text":"{\"ok\":true}"}}
+{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}
