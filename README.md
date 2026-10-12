@@ -12,6 +12,10 @@ the work is safe to execute.
 The LLM proposes. A deterministic gate validates. A human approves. Only then does a
 no-LLM tool write to your tracker. That separation is the whole point.
 
+## Project film
+
+An illustrative project film showing code-grounded planning, deterministic validation, two human approvals, and a no-LLM tracker writer. Reconstructed visuals and the fixture-based demo are not a live Jira run or proof of live planning quality.
+
 ---
 
 ## Why Radsvinn is different
