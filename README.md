@@ -14,6 +14,8 @@ no-LLM tool write to your tracker. That separation is the whole point.
 
 ## Project film
 
+https://github.com/user-attachments/assets/67b93980-b9a6-41de-80aa-3e3b25c1e231
+
 An illustrative project film showing code-grounded planning, deterministic validation, two human approvals, and a no-LLM tracker writer. Reconstructed visuals and the fixture-based demo are not a live Jira run or proof of live planning quality.
 
 ---
